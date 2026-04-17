@@ -23,6 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - hasktorch-tools
 - hasktorch
+- random
+- containers
 
 ghc-options:
 - -Wall
@@ -40,8 +42,8 @@ library:
 
 executables:
   yuka-project-exe:
-    main:                Main.hs
-    source-dirs:         app
+    main:                exercise_5.hs
+    source-dirs:         Session2
     ghc-options:
     - -threaded
     - -rtsopts

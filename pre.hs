@@ -1,5 +1,5 @@
 
-module Main (main) where
+module Pre (main) where
 
 --hasktorch
 import Torch.TensorFactories (zeros')
