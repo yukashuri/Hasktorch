@@ -1,5 +1,6 @@
-import Torch.Tensor (Tensor, asTensor)
-import Torch.Functional (add, mul)
+import Torch.Tensor (Tensor, asTensor, asValue)
+import Torch.Functional (mean, add, mul)
+import Control.Monad (forM_)
 
 ys :: Tensor
 ys = asTensor ([130, 195, 218, 166, 163, 155, 204, 270, 205, 127, 260, 249, 251, 158, 167] :: [Float])
@@ -15,12 +16,17 @@ linear (slope, intercept) input =
     let y = mul slope input
     in add y intercept
 
--- -- 予測値がどれくらいずれているか計算する関数
--- mseLoss :: Tensor -> Tensor -> Tensor
--- mseLoss y_pre y = 
---     let diff = sub y_pre y
---         squared = mul diff diff         -- 要素ごとの掛け算
---     in  torch.mean(squared)
+-- 予測値がどれくらいずれているか計算する関数
+cost ::
+    Tensor -> -- ^ grand truth: 1 × 10
+    Tensor -> -- ^ estimated values: 1 × 10
+    Tensor    -- ^ loss: scalar
+cost z z' = 
+    let diff = z - z' 
+        squared = mul diff diff                 -- 要素ごとの掛け算
+    in  mean squared
+
+
 
 -- -- パラメータを更新する関数
 -- updateStep :: Float -> (Tensor, Tensor) -> Int -> (Tensor, Tensor)
@@ -41,11 +47,14 @@ main = do
   
   let estimatedYs = linear (sampleA, sampleB) xs
 
-  putStrLn $ "correct answer: "
-  print ys
-
-  putStrLn $ "estimated: "
-  print estimatedYs
+  let ysList = asValue ys :: [Float]
+  let estimatedYsList = asValue estimatedYs :: [Float]
+  
+  forM_ (zip ysList estimatedYsList) $ \(correct, estimated) -> do
+    -- 出力例の「148」のように整数表示にするため、正解側だけ round (四捨五入) で整数化しています
+    putStrLn $ "correct answer: " ++ show (round correct :: Int)
+    putStrLn $ "estimated: " ++ show estimated
+    putStrLn "******"
     
     -- Expected outputs:
     -- correct answer: 148

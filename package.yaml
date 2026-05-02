@@ -51,8 +51,8 @@ executables:
     dependencies:
     - yuka-project
 
-  Session3:
-    main:                LinerRegression.hs
+  Session3-linear-regression:
+    main:                LinearRegression.hs
     source-dirs:         Session3
     ghc-options:
     - -threaded
