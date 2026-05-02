@@ -56,7 +56,6 @@ p_expanded = unsqueeze (Dim 1) p
 -- 2. 膨らませた p を使ってベクトルを作る
 q62_v = p1 - p0
 q62_w = p_expanded - p0
--- ここからはゆかさんの完璧なコードと同じです！
 q62_v_x = select 1 0 q62_v
 q62_v_y = select 1 1 q62_v
 -- w の次元が1つ増えたので、XとYの次元の位置も 1つ後ろ(Dim 2) にズレます！

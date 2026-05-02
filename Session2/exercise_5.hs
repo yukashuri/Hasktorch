@@ -86,7 +86,7 @@ main = do
 
     -- 74. How to create a record array from a regular array? (★★★)
     -- 通常の配列から、レコード配列（Record array / 構造化配列）をどうやって作成するか？ (★★★)
-    
+
 
     -- 75. Consider a large vector Z, compute Z to the power of 3 using 3 different methods (★★★)
     -- 巨大なベクトル Z があるとする。Z の3乗を、3つの異なる方法を使って計算せよ。 (★★★)
@@ -133,3 +133,39 @@ main = do
 
     -- 83. Compute bootstrapped 95% confidence intervals for the mean of a 1D array X (i.e., resample the elements of an array with replacement N times, compute the mean of each sample, and then compute percentiles over the means). (★★★)
     -- 1次元配列 X の平均に対する、ブートストラップ法を用いた95%信頼区間を計算せよ（つまり、配列の要素を復元抽出で N 回リサンプリングし、各サンプルの平均を計算した上で、それら平均値のパーセンタイルを計算すること）。 (★★★)
+    let xList = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0] :: [Float]
+        x = asTensor xList
+        m = L.length xList
+        nBootstraps = 1000 :: Int
+
+    indicesList <- replicateM nBootstraps (replicateM m (randomRIO (0, m - 1)))
+
+    let computeMean idx = 
+            let idxTensor = toType Int64 (asTensor (idx :: [Int]))
+                sampled = indexSelect 0 idxTensor x
+                sampledList = asValue sampled :: [Float]
+            -- P.sum を使用してリストの合計を計算
+            in P.sum sampledList / fromIntegral m
+            
+        means = map computeMean indicesList
+
+    let sortedMeans = L.sort means
+        
+        lowerIdx = round (fromIntegral nBootstraps * 0.025) :: Int
+        upperIdx = round (fromIntegral nBootstraps * 0.975) :: Int
+        
+        safeLowerIdx = Prelude.max 0 (Prelude.min (nBootstraps - 1) lowerIdx)
+        safeUpperIdx = Prelude.max 0 (Prelude.min (nBootstraps - 1) upperIdx)
+        
+        ciLower = sortedMeans !! safeLowerIdx
+        ciUpper = sortedMeans !! safeUpperIdx
+
+    putStrLn "=== Data ==="
+    putStrLn $ "X: " ++ show xList
+    -- ここも P.sum を使用
+    putStrLn $ "Original Mean: " ++ show (P.sum xList / fromIntegral m)
+    
+    putStrLn "\n=== Bootstrap 95% Confidence Interval ==="
+    putStrLn $ "Number of Resamples (N): " ++ show nBootstraps
+    putStrLn $ "2.5% Percentile (Lower): " ++ show ciLower
+    putStrLn $ "97.5% Percentile (Upper): " ++ show ciUpper
