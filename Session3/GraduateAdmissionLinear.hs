@@ -107,4 +107,39 @@ main = do
   putStrLn $ "Final a (slope): " ++ show (asValue finalA :: Float)
   putStrLn $ "Final b (intercept): " ++ show (asValue finalB :: Float)
   
-  -- ★ 課題にある「eval.csv を使った予測と検証」は、この下に書き足していきます
+-----------------------------------------------------
+-- ここから評価
+
+  putStrLn "\n--- Evaluation Phase (eval.csv) ---"
+  
+  -- 1. eval.csv の読み込み
+  evalData <- loadCSV "Session3/data/eval.csv"
+  
+  -- 2. 学習データと同じように x を 340.0 で正規化してリスト化
+  let rawEvalXs = map (\d -> realToFrac (greScore d) / 340.0 :: Float) (V.toList evalData)
+      rawEvalYs = map (\d -> realToFrac (chanceOfAdmit d) :: Float) (V.toList evalData)
+
+  -- 3. Tensor に変換
+  let evalXs = asTensor rawEvalXs
+      evalYs = asTensor rawEvalYs
+
+  -- 4. 学習で得た最終パラメータ (finalA, finalB) を使って予測値を計算
+  let evalPredictions = linear (finalA, finalB) evalXs
+  
+  -- 5. 評価データにおける Loss (MSE) を計算
+  -- 誤差の平均
+  let evalLoss = cost evalYs evalPredictions
+  putStrLn $ "Evaluation Loss (MSE): " ++ show (asValue evalLoss :: Float)
+
+  -- 6. 実際の値と予測値を比較（最初の5件だけピックアップして表示）
+  putStrLn "\n--- Sample Predictions (Actual vs Estimated) ---"
+  let actualYsList = asValue evalYs :: [Float]
+  let estimatedYsList = asValue evalPredictions :: [Float]
+  
+  -- zipで正解と予測のペアを作り、forM_でループして表示
+  forM_ (take 5 (zip actualYsList estimatedYsList)) $ \(actual, estimated) -> do
+    putStrLn $ "Actual (正解):    " ++ show actual
+    putStrLn $ "Estimated (予測): " ++ show estimated
+    putStrLn "******"
+
+  putStrLn "\nプログラムが正常に完了しました！"
