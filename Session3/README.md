@@ -414,3 +414,73 @@ Actual (正解):    0.77
 Estimated (予測): 0.7260295
 ******
 ```
+
+## 5-h
+```
+putStrLn "\n--- Validation Phase (valid.csv) ---"
+  
+  -- 1. valid.csv の読み込み
+  validData <- loadCSV "Session3/data/valid.csv"
+  
+  -- 2. x を 340.0 で正規化してリスト化
+  let rawValidXs = map (\d -> realToFrac (greScore d) / 340.0 :: Float) (V.toList validData)
+      rawValidYs = map (\d -> realToFrac (chanceOfAdmit d) :: Float) (V.toList validData)
+
+  -- 3. Tensor に変換
+  let validXs = asTensor rawValidXs
+      validYs = asTensor rawValidYs
+
+  -- 4. 学習済みパラメータで予測
+  let validPredictions = linear (finalA, finalB) validXs
+  
+  -- 5. valid.csv での Loss を計算
+  let validLoss = cost validYs validPredictions
+  putStrLn $ "Validation Loss (MSE): " ++ show (asValue validLoss :: Float)
+
+  -- 6. 結果のサンプル表示
+  putStrLn "\n--- Sample Predictions (Valid Data) ---"
+  let actualValidYsList = asValue validYs :: [Float]
+  let estimatedValidYsList = asValue validPredictions :: [Float]
+  
+  forM_ (take 5 (zip actualValidYsList estimatedValidYsList)) $ \(actual, estimated) -> do
+    putStrLn $ "Actual (正解):    " ++ show actual
+    putStrLn $ "Estimated (予測): " ++ show estimated
+    putStrLn "******"
+```
+```
+--- Validation Phase (valid.csv) ---
+Validation Loss (MSE): 1.31922765e-2
+
+--- Sample Predictions (Valid Data) ---
+Actual (正解):    0.75
+Estimated (予測): 0.73073083
+******
+Actual (正解):    0.73
+Estimated (予測): 0.73778284
+******
+Actual (正解):    0.72
+Estimated (予測): 0.7272048
+******
+Actual (正解):    0.62
+Estimated (予測): 0.7166268
+******
+Actual (正解):    0.67
+Estimated (予測): 0.72838014
+******
+```
+
+## 5-i
+## 1. Parameters (最終パラメータ)
+- **a (Slope / 傾き):** 0.39961314
+- **b (Intercept / 切片):** 0.35815033
+*(注: 学習を安定させるため、説明変数である GRE Score は最大値 340.0 で割り、0.0〜1.0 の範囲に正規化して計算しています)*
+
+## 2. Final Cost (最終コスト / MSE)
+- **Training Data:** 1.6925888e-2 (約 0.0169)
+- **Valid Data:** 1.31922765e-2 (約 0.0131)
+
+## 3. Analysis (分析)
+学習結果から、Training Loss (約 0.0169) と Validation Loss (約 0.0131) が非常に近い値となりました。検証データにおける誤差が学習データと同等に低く抑えられているため、モデルが Training データに過学習（Overfitting）することなく、未知のデータに対しても適切に汎化（Generalization）できていると評価できます。
+正規化された GRE Score と Chance of Admit の間には明確な正の線形関係があり、今回の単回帰モデルでその傾向を十分に捉えることができています。
+
+

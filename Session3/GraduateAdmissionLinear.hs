@@ -143,3 +143,36 @@ main = do
     putStrLn "******"
 
   putStrLn "\nプログラムが正常に完了しました！"
+
+  -- ==========================================
+  -- 検証（Validation）フェーズ：valid.csv の確認
+  -- ==========================================
+  putStrLn "\n--- Validation Phase (valid.csv) ---"
+  
+  -- 1. valid.csv の読み込み
+  validData <- loadCSV "Session3/data/valid.csv"
+  
+  -- 2. x を 340.0 で正規化してリスト化
+  let rawValidXs = map (\d -> realToFrac (greScore d) / 340.0 :: Float) (V.toList validData)
+      rawValidYs = map (\d -> realToFrac (chanceOfAdmit d) :: Float) (V.toList validData)
+
+  -- 3. Tensor に変換
+  let validXs = asTensor rawValidXs
+      validYs = asTensor rawValidYs
+
+  -- 4. 学習済みパラメータで予測
+  let validPredictions = linear (finalA, finalB) validXs
+  
+  -- 5. valid.csv での Loss を計算
+  let validLoss = cost validYs validPredictions
+  putStrLn $ "Validation Loss (MSE): " ++ show (asValue validLoss :: Float)
+
+  -- 6. 結果のサンプル表示
+  putStrLn "\n--- Sample Predictions (Valid Data) ---"
+  let actualValidYsList = asValue validYs :: [Float]
+  let estimatedValidYsList = asValue validPredictions :: [Float]
+  
+  forM_ (take 5 (zip actualValidYsList estimatedValidYsList)) $ \(actual, estimated) -> do
+    putStrLn $ "Actual (正解):    " ++ show actual
+    putStrLn $ "Estimated (予測): " ++ show estimated
+    putStrLn "******"
