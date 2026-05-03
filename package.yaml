@@ -25,6 +25,8 @@ dependencies:
 - hasktorch
 - random
 - containers
+- gnuplot
+- matplotlib
 
 ghc-options:
 - -Wall
