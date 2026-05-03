@@ -107,3 +107,76 @@ cost z z' =
 ```
 
 ## 3-e 
+```
+calculateNewA :: 
+     Tensor ->
+     Tensor ->
+     Tensor
+calculateNewA a y = a - rate * gradA
+  where
+    diff = y - ys
+    rate = 0.01 -- 学習率
+    gradA = mean ( mul 2 (mul diff xs) )-- 勾配の計算（コスト関数のaに対する偏微分）
+
+calculateNewB :: 
+     Tensor ->
+     Tensor ->
+     Tensor
+calculateNewB b y = b - rate * gradB
+  where
+    diff = y - ys
+    rate = 0.01 -- 学習率
+    gradB = mean ( mul 2 diff ) -- 勾配の計算（コスト関数のbに対する偏微分）
+```
+
+## 3-f
+```
+-- 指定したエポック数だけ学習を繰り返す再帰関数
+trainLoop :: Int -> Int -> Tensor -> Tensor -> IO (Tensor, Tensor)
+trainLoop currentEpoch maxEpoch a b 
+  | currentEpoch > maxEpoch = do
+      putStrLn "Training completed!"
+      return (a, b)  -- 目標エポックに達したら、最終的なパラメータを返す
+  | otherwise = do
+      -- 1. 現在の a と b で予測値と、ズレ（Loss）を計算
+      let estimatedYs = linear (a, b) xs
+          currentLoss = cost ys estimatedYs  
+      
+      -- 2. 現在のエポック数と Loss を画面に表示
+      putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show (asValue currentLoss :: Float)
+      
+      -- 3. a と b を更新（※前回修正した asTensor や sub を使った関数を呼び出します）
+      let newA = calculateNewA a estimatedYs
+          newB = calculateNewB b estimatedYs
+
+      putStrLn $ "Updated parameters - a: " ++ show (asValue newA :: Float) ++ ", b: " ++ show (asValue newB :: Float)
+      
+      -- 4. 新しくなったパラメータを渡して、次のエポックへ進む（再帰呼び出し）
+      trainLoop (currentEpoch + 1) maxEpoch newA newB
+```
+
+```
+--- Training Started ---
+Epoch 1 - Loss: 1117.3969
+Updated parameters - a: 0.5551905, b: 94.58503
+Epoch 2 - Loss: 1117.3947
+Updated parameters - a: 0.55524576, b: 94.58503
+Epoch 3 - Loss: 1117.3943
+Updated parameters - a: 0.5552618, b: 94.58503
+Epoch 4 - Loss: 1117.3943
+Updated parameters - a: 0.55526644, b: 94.58503
+Epoch 5 - Loss: 1117.3943
+Updated parameters - a: 0.5552678, b: 94.58503
+Epoch 6 - Loss: 1117.3945
+Updated parameters - a: 0.5552682, b: 94.58503
+Epoch 7 - Loss: 1117.3942
+Updated parameters - a: 0.5552683, b: 94.58503
+Epoch 8 - Loss: 1117.3945
+Updated parameters - a: 0.55526835, b: 94.58503
+Epoch 9 - Loss: 1117.3943
+Updated parameters - a: 0.55526835, b: 94.58503
+Epoch 10 - Loss: 1117.3943
+Updated parameters - a: 0.55526835, b: 94.58503
+Training completed!
+```
+
