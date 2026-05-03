@@ -218,3 +218,6 @@ Updated parameters - a: 0.55513984, b: 94.58503
 Training completed!
 ```
 <img src="learning_curve.png" width="400">
+
+エポックを100にした時
+<img src="learning_curve-3.png" width="400">

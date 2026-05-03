@@ -15,7 +15,7 @@ main = do
   putStrLn "--- Training Started ---"
   
   -- LinearRegression.hs の trainLoop を呼び出す
-  (finalA, finalB, losses) <- trainLoop 1 10 sampleA sampleB []
+  (finalA, finalB, losses) <- trainLoop 1 100 sampleA sampleB []
   
   putStrLn "------------------------"
   putStrLn "Final Predictions:"
@@ -36,6 +36,6 @@ main = do
   
   -- ★ ML.Exp.Chart を使ってグラフを描画
   let chartData = ("Linear Regression", losses)
-  drawLearningCurve "learning_curve-2.png" "Loss over Epochs" [chartData]
+  drawLearningCurve "learning_curve-3.png" "Loss over Epochs" [chartData]
   
   putStrLn "learning_curve.png was successfully created!"

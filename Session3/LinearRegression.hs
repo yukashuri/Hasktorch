@@ -35,7 +35,7 @@ calculateNewA ::
 calculateNewA a y = a - rate * gradA
   where
     diff = y - ys
-    rate = 0.00001 -- 学習率
+    rate = 0.000001 -- 学習率
     gradA = mean ( mul 2 (mul diff xs) )-- 勾配の計算（コスト関数のaに対する偏微分）
 
 calculateNewB :: 
@@ -45,7 +45,7 @@ calculateNewB ::
 calculateNewB b y = b - rate * gradB
   where
     diff = y - ys
-    rate = 0.00001 -- 学習率
+    rate = 0.000001 -- 学習率
     gradB = mean ( mul 2 diff ) -- 勾配の計算（コスト関数のbに対する偏微分）
 
 -- fまでのコードは以下を使う
@@ -83,12 +83,12 @@ trainLoop currentEpoch maxEpoch a b history
           currentLoss = cost ys estimatedYs  
           lossValue   = asValue currentLoss :: Float
       
-      putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show lossValue
+    --   putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show lossValue
       
       let newA = calculateNewA a estimatedYs
           newB = calculateNewB b estimatedYs
 
-      putStrLn $ "Updated parameters - a: " ++ show (asValue newA :: Float) ++ ", b: " ++ show (asValue newB :: Float)
+    --   putStrLn $ "Updated parameters - a: " ++ show (asValue newA :: Float) ++ ", b: " ++ show (asValue newB :: Float)
       
       -- 次のループへ
       trainLoop (currentEpoch + 1) maxEpoch newA newB (lossValue : history)
