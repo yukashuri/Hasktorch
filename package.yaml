@@ -27,6 +27,9 @@ dependencies:
 - containers
 - gnuplot
 - matplotlib
+- cassava
+- vector
+- bytestring
 
 ghc-options:
 - -Wall
@@ -71,6 +74,18 @@ executables:
     - app
     - Session3
     ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - yuka-project
+  
+  session-3-graduate-admission-linear:
+    main:                GraduateAdmissionLinear.hs
+    source-dirs:
+    - Session3
+    ghc-options:
+    - -main-is GraduateAdmissionLinear
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N

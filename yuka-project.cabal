@@ -27,6 +27,7 @@ library
   exposed-modules:
       Lib
       Chart
+      GraduateAdmissionLinear
       LinearRegression
   other-modules:
       Paths_yuka_project
@@ -38,18 +39,22 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
     , containers
     , gnuplot
     , hasktorch
     , hasktorch-tools
     , matplotlib
     , random
+    , vector
   default-language: Haskell2010
 
 executable Session3-f
   main-is: Main.hs
   other-modules:
       Chart
+      GraduateAdmissionLinear
       LinearRegression
       Paths_yuka_project
   autogen-modules:
@@ -60,12 +65,15 @@ executable Session3-f
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
     , containers
     , gnuplot
     , hasktorch
     , hasktorch-tools
     , matplotlib
     , random
+    , vector
     , yuka-project
   default-language: Haskell2010
 
@@ -73,6 +81,7 @@ executable Session3-linear-regression
   main-is: LinearRegression.hs
   other-modules:
       Chart
+      GraduateAdmissionLinear
       Paths_yuka_project
   autogen-modules:
       Paths_yuka_project
@@ -81,12 +90,40 @@ executable Session3-linear-regression
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
     , containers
     , gnuplot
     , hasktorch
     , hasktorch-tools
     , matplotlib
     , random
+    , vector
+    , yuka-project
+  default-language: Haskell2010
+
+executable session-3-graduate-admission-linear
+  main-is: GraduateAdmissionLinear.hs
+  other-modules:
+      Chart
+      LinearRegression
+      Paths_yuka_project
+  autogen-modules:
+      Paths_yuka_project
+  hs-source-dirs:
+      Session3
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -main-is GraduateAdmissionLinear -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , gnuplot
+    , hasktorch
+    , hasktorch-tools
+    , matplotlib
+    , random
+    , vector
     , yuka-project
   default-language: Haskell2010
 
@@ -101,12 +138,15 @@ executable yuka-project-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
     , containers
     , gnuplot
     , hasktorch
     , hasktorch-tools
     , matplotlib
     , random
+    , vector
     , yuka-project
   default-language: Haskell2010
 
@@ -122,11 +162,14 @@ test-suite yuka-project-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
+    , bytestring
+    , cassava
     , containers
     , gnuplot
     , hasktorch
     , hasktorch-tools
     , matplotlib
     , random
+    , vector
     , yuka-project
   default-language: Haskell2010
