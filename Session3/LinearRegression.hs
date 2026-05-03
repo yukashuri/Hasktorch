@@ -1,3 +1,5 @@
+module LinearRegression where
+
 import Torch.Tensor (Tensor, asTensor, asValue)
 import Torch.Functional (mean, add, mul)
 import Control.Monad (forM_)
@@ -46,62 +48,85 @@ calculateNewB b y = b - rate * gradB
     rate = 0.00001 -- 学習率
     gradB = mean ( mul 2 diff ) -- 勾配の計算（コスト関数のbに対する偏微分）
 
--- 指定したエポック数だけ学習を繰り返す再帰関数
-trainLoop :: Int -> Int -> Tensor -> Tensor -> IO (Tensor, Tensor)
-trainLoop currentEpoch maxEpoch a b 
+-- fまでのコードは以下を使う
+-- -- 指定したエポック数だけ学習を繰り返す再帰関数
+-- trainLoop :: Int -> Int -> Tensor -> Tensor -> IO (Tensor, Tensor)
+-- trainLoop currentEpoch maxEpoch a b 
+--   | currentEpoch > maxEpoch = do
+--       putStrLn "Training completed!"
+--       return (a, b)  -- 目標エポックに達したら、最終的なパラメータを返す
+--   | otherwise = do
+--       -- 1. 現在の a と b で予測値と、ズレ（Loss）を計算
+--       let estimatedYs = linear (a, b) xs
+--           currentLoss = cost ys estimatedYs  
+      
+--       -- 2. 現在のエポック数と Loss を画面に表示
+--       putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show (asValue currentLoss :: Float)
+      
+--       -- 3. a と b を更新（※前回修正した asTensor や sub を使った関数を呼び出します）
+--       let newA = calculateNewA a estimatedYs
+--           newB = calculateNewB b estimatedYs
+
+--       putStrLn $ "Updated parameters - a: " ++ show (asValue newA :: Float) ++ ", b: " ++ show (asValue newB :: Float)
+      
+--       -- 4. 新しくなったパラメータを渡して、次のエポックへ進む（再帰呼び出し）
+--       trainLoop (currentEpoch + 1) maxEpoch newA newB
+
+-- ★ グラフ用のLoss履歴を返すようにだけ修正
+trainLoop :: Int -> Int -> Tensor -> Tensor -> [Float] -> IO (Tensor, Tensor, [Float])
+trainLoop currentEpoch maxEpoch a b history
   | currentEpoch > maxEpoch = do
       putStrLn "Training completed!"
-      return (a, b)  -- 目標エポックに達したら、最終的なパラメータを返す
+      return (a, b, reverse history)  -- 履歴をひっくり返して返す
   | otherwise = do
-      -- 1. 現在の a と b で予測値と、ズレ（Loss）を計算
       let estimatedYs = linear (a, b) xs
           currentLoss = cost ys estimatedYs  
+          lossValue   = asValue currentLoss :: Float
       
-      -- 2. 現在のエポック数と Loss を画面に表示
-      putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show (asValue currentLoss :: Float)
+      putStrLn $ "Epoch " ++ show currentEpoch ++ " - Loss: " ++ show lossValue
       
-      -- 3. a と b を更新（※前回修正した asTensor や sub を使った関数を呼び出します）
       let newA = calculateNewA a estimatedYs
           newB = calculateNewB b estimatedYs
 
       putStrLn $ "Updated parameters - a: " ++ show (asValue newA :: Float) ++ ", b: " ++ show (asValue newB :: Float)
       
-      -- 4. 新しくなったパラメータを渡して、次のエポックへ進む（再帰呼び出し）
-      trainLoop (currentEpoch + 1) maxEpoch newA newB
+      -- 次のループへ
+      trainLoop (currentEpoch + 1) maxEpoch newA newB (lossValue : history)
 
-main :: IO ()
-main = do
-  -- Below are pseudo code
-  let sampleA = asTensor (0.555 :: Float)
-  let sampleB = asTensor (94.585026 :: Float)
+-- fまでのコードは以下を使う
+-- main :: IO ()
+-- main = do
+--   -- Below are pseudo code
+--   let sampleA = asTensor (0.555 :: Float)
+--   let sampleB = asTensor (94.585026 :: Float)
 	
-  -- Iterate through the provided xs and ys data. 
-  -- For each pair, convert x to a tensor, calculate the estimatedY using your linear function with the provided sampleA and sampleB, and print both the correct y and the estimatedY.
-  putStrLn "--- Training Started ---"
+--   -- Iterate through the provided xs and ys data. 
+--   -- For each pair, convert x to a tensor, calculate the estimatedY using your linear function with the provided sampleA and sampleB, and print both the correct y and the estimatedY.
+--   putStrLn "--- Training Started ---"
   
-  -- ★ ここで1エポック目から10エポック目まで学習ループを回す
-  (finalA, finalB) <- trainLoop 1 10 sampleA sampleB
+--   -- ★ ここで1エポック目から10エポック目まで学習ループを回す
+--   (finalA, finalB) <- trainLoop 1 10 sampleA sampleB
   
-  putStrLn "------------------------"
-  putStrLn "Final Predictions:"
+--   putStrLn "------------------------"
+--   putStrLn "Final Predictions:"
 
-  let estimatedYs = linear (finalA, finalB) xs
+--   let estimatedYs = linear (finalA, finalB) xs
 
-  let ysList = asValue ys :: [Float]
-  let estimatedYsList = asValue estimatedYs :: [Float]
+--   let ysList = asValue ys :: [Float]
+--   let estimatedYsList = asValue estimatedYs :: [Float]
   
-  forM_ (zip ysList estimatedYsList) $ \(correct, estimated) -> do
-    -- 出力例の「148」のように整数表示にするため、正解側だけ round (四捨五入) で整数化しています
-    putStrLn $ "correct answer: " ++ show (round correct :: Int)
-    putStrLn $ "estimated: " ++ show estimated
-    putStrLn "******"
+--   forM_ (zip ysList estimatedYsList) $ \(correct, estimated) -> do
+--     -- 出力例の「148」のように整数表示にするため、正解側だけ round (四捨五入) で整数化しています
+--     putStrLn $ "correct answer: " ++ show (round correct :: Int)
+--     putStrLn $ "estimated: " ++ show estimated
+--     putStrLn "******"
     
-    -- Expected outputs:
-    -- correct answer: 148
-    -- estimated: ?
-    -- *******
-    -- correct answer: 186
-    -- ...
+--     -- Expected outputs:
+--     -- correct answer: 148
+--     -- estimated: ?
+--     -- *******
+--     -- correct answer: 186
+--     -- ...
 
   
-  return ()
+--   return ()

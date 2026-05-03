@@ -1,6 +1,11 @@
 # Hands-on Tasks
 
 ## 3-b Result of the Linear Function
+実行コマンド
+```
+stack run Session3-linear-regression 
+```
+
 ```
 correct answer: 130
 estimated: 176.72504
@@ -129,7 +134,13 @@ calculateNewB b y = b - rate * gradB
     gradB = mean ( mul 2 diff ) -- 勾配の計算（コスト関数のbに対する偏微分）
 ```
 
-## 3-f
+## 3-f,g
+
+gの実行コマンド
+```
+stack run
+```
+
 ```
 -- 指定したエポック数だけ学習を繰り返す再帰関数
 trainLoop :: Int -> Int -> Tensor -> Tensor -> IO (Tensor, Tensor)
@@ -154,7 +165,7 @@ trainLoop currentEpoch maxEpoch a b
       -- 4. 新しくなったパラメータを渡して、次のエポックへ進む（再帰呼び出し）
       trainLoop (currentEpoch + 1) maxEpoch newA newB
 ```
-
+0.00001の時
 ```
 --- Training Started ---
 Epoch 1 - Loss: 1117.3969
@@ -179,4 +190,31 @@ Epoch 10 - Loss: 1117.3943
 Updated parameters - a: 0.55526835, b: 94.58503
 Training completed!
 ```
+<img src="learning_curve-2.png" width="400">
 
+0.000001の時
+```
+--- Training Started ---
+Epoch 1 - Loss: 1117.3969
+Updated parameters - a: 0.5550191, b: 94.58503
+Epoch 2 - Loss: 1117.3964
+Updated parameters - a: 0.5550368, b: 94.58503
+Epoch 3 - Loss: 1117.3962
+Updated parameters - a: 0.55505323, b: 94.58503
+Epoch 4 - Loss: 1117.3961
+Updated parameters - a: 0.5550685, b: 94.58503
+Epoch 5 - Loss: 1117.3959
+Updated parameters - a: 0.5550827, b: 94.58503
+Epoch 6 - Loss: 1117.3956
+Updated parameters - a: 0.55509585, b: 94.58503
+Epoch 7 - Loss: 1117.3953
+Updated parameters - a: 0.5551081, b: 94.58503
+Epoch 8 - Loss: 1117.3953
+Updated parameters - a: 0.55511945, b: 94.58503
+Epoch 9 - Loss: 1117.3949
+Updated parameters - a: 0.55513, b: 94.58503
+Epoch 10 - Loss: 1117.395
+Updated parameters - a: 0.55513984, b: 94.58503
+Training completed!
+```
+<img src="learning_curve.png" width="400">

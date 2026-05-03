@@ -40,7 +40,9 @@ ghc-options:
 - -Wredundant-constraints
 
 library:
-  source-dirs: src
+  source-dirs: 
+    - src
+    - Session3
 
 executables:
   yuka-project-exe:
@@ -56,6 +58,18 @@ executables:
   Session3-linear-regression:
     main:                LinearRegression.hs
     source-dirs:         Session3
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - yuka-project
+  
+  Session3-f:
+    main:                Main.hs
+    source-dirs:
+    - app
+    - Session3
     ghc-options:
     - -threaded
     - -rtsopts

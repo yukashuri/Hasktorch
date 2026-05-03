@@ -1,4 +1,4 @@
-module ML.Exp.Chart (
+module Chart (
   drawLearningCurve,
   drawConfusionMatrix
   ) where
