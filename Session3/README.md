@@ -332,9 +332,85 @@ main = do
   putStrLn "------------------------"
   putStrLn $ "Final a (slope): " ++ show (asValue finalA :: Float)
   putStrLn $ "Final b (intercept): " ++ show (asValue finalB :: Float)
-  ```
-  linear関数とcost関数はそのまま
-  calculateNewA関数とcalculateNewB関数は引数として、外部からxsとysが受け取れるようにした
+```
 
-  GRE Scoreは300前後ですが、Chance of Admitは0〜1の範囲です。このまま掛け算をして勾配（Gradient）を計算すると値が爆発してうまく学習できないため、コード内で GRE Score を最大値である 340.0 で割って正規化（Normalization）する処理を入れています。
+linear関数とcost関数はそのまま
+calculateNewA関数とcalculateNewB関数は引数として、外部からxsとysが受け取れるようにした
 
+GRE Scoreは300前後ですが、Chance of Admitは0〜1の範囲です。このまま掛け算をして勾配（Gradient）を計算すると値が爆発してうまく学習できないため、コード内で GRE Score を最大値である 340.0 で割って正規化（Normalization）する処理を入れています。
+
+```
+--- Training Started ---
+Epoch 10 - Loss: 1.7245742e-2
+Epoch 20 - Loss: 1.7107204e-2
+Epoch 30 - Loss: 1.7084341e-2
+Epoch 40 - Loss: 1.7061548e-2
+Epoch 50 - Loss: 1.7038804e-2
+Epoch 60 - Loss: 1.7016113e-2
+Epoch 70 - Loss: 1.6993474e-2
+Epoch 80 - Loss: 1.6970895e-2
+Epoch 90 - Loss: 1.6948365e-2
+Epoch 100 - Loss: 1.6925888e-2
+Training completed!
+```
+
+
+## 5-g
+```
+-- ここから評価
+
+  putStrLn "\n--- Evaluation Phase (eval.csv) ---"
+  
+  -- 1. eval.csv の読み込み
+  evalData <- loadCSV "Session3/data/eval.csv"
+  
+  -- 2. 学習データと同じように x を 340.0 で正規化してリスト化
+  let rawEvalXs = map (\d -> realToFrac (greScore d) / 340.0 :: Float) (V.toList evalData)
+      rawEvalYs = map (\d -> realToFrac (chanceOfAdmit d) :: Float) (V.toList evalData)
+
+  -- 3. Tensor に変換
+  let evalXs = asTensor rawEvalXs
+      evalYs = asTensor rawEvalYs
+
+  -- 4. 学習で得た最終パラメータ (finalA, finalB) を使って予測値を計算
+  let evalPredictions = linear (finalA, finalB) evalXs
+  
+  -- 5. 評価データにおける Loss (MSE) を計算
+  -- 誤差の平均
+  let evalLoss = cost evalYs evalPredictions
+  putStrLn $ "Evaluation Loss (MSE): " ++ show (asValue evalLoss :: Float)
+
+  -- 6. 実際の値と予測値を比較（最初の5件だけピックアップして表示）
+  putStrLn "\n--- Sample Predictions (Actual vs Estimated) ---"
+  let actualYsList = asValue evalYs :: [Float]
+  let estimatedYsList = asValue evalPredictions :: [Float]
+  
+  -- zipで正解と予測のペアを作り、forM_でループして表示
+  forM_ (take 5 (zip actualYsList estimatedYsList)) $ \(actual, estimated) -> do
+    putStrLn $ "Actual (正解):    " ++ show actual
+    putStrLn $ "Estimated (予測): " ++ show estimated
+    putStrLn "******"
+
+  putStrLn "\nプログラムが正常に完了しました！"
+```
+```
+  --- Evaluation Phase (eval.csv) ---
+Evaluation Loss (MSE): 2.5683722e-2
+
+--- Sample Predictions (Actual vs Estimated) ---
+Actual (正解):    0.85
+Estimated (予測): 0.73660743
+******
+Actual (正解):    0.93
+Estimated (予測): 0.75071144
+******
+Actual (正解):    0.91
+Estimated (予測): 0.7554128
+******
+Actual (正解):    0.69
+Estimated (予測): 0.71780217
+******
+Actual (正解):    0.77
+Estimated (予測): 0.7260295
+******
+```
