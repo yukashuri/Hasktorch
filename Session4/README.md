@@ -1,6 +1,6 @@
-#Hands-on tasks#
+#　Hands-on tasks　#
 
-##1 Build and train an AND gate using a simple perceptron##
+##　1 Build and train an AND gate using a simple perceptron　##
 
 ```
 Epoch 1 - Total Error: 3.0
@@ -104,9 +104,9 @@ main = do
       putStrLn $ "Input: " ++ show x ++ " -> Output: " ++ show (asValue pred :: Float)
 ```
 
-##2 Build a XOR gate using a multi-layer perceptron##
+##　2 Build a XOR gate using a multi-layer perceptron　##
 
-###a###
+###　a　###
 ```
 Iteration: 100 | Loss: Tensor Float []  0.2293   
 Iteration: 200 | Loss: Tensor Float []  0.2749   
@@ -135,7 +135,7 @@ Final Model:
 1, 1 => Tensor Float []  0.0000
 ```
 
-###b###
+###　b　###
 ```
 data MLPSpec = MLPSpec
   { feature_counts :: [Int],
