@@ -244,3 +244,289 @@ mseLossで誤差を計算する。平均二乗誤差が計算される。
         b = select 1 1 t
 ```
 算数のみでXORの正解を作っている。
+
+### c ###
+```
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecordWildCards #-}
+
+module Main where
+
+import Prelude hiding (tanh) 
+import Control.Monad (forM_)        --base
+--import Data.List (cycle)          --base
+--hasktorch
+import Torch.Tensor       (asValue)
+import Torch.Functional   (mseLoss)
+import Torch.Device       (Device(..),DeviceType(..))
+import Torch.NN           (sample)
+import Torch.Train        (update,showLoss,sumTensors)
+import Torch.Control      (mapAccumM)
+import Torch.Optim        (GD(..))
+import Torch.Tensor.TensorFactories (asTensor'')
+import Torch.Layer.MLP    (MLPHypParams(..),ActName(..),mlpLayer)
+import ML.Exp.Chart   (drawLearningCurve) --nlp-tools
+
+trainingData :: [([Float],Float)]
+trainingData = take 10 $ cycle [([1,1],0),([1,0],1),([0,1],1),([0,0],0)]
+
+main :: IO()
+main = do
+  let iter = 1500::Int
+      device = Device CUDA 0
+      hypParams = MLPHypParams device 2 [(3,Sigmoid),(1,Sigmoid)]
+  initModel <- sample hypParams
+  ((trainedModel,_),losses) <- mapAccumM [1..iter] (initModel,GD) $ \epoc (model,opt) -> do
+    let loss = sumTensors $ for trainingData $ \(input,output) ->
+                  let y = asTensor'' device output
+                      y' = mlpLayer model $ asTensor'' device input
+                  in mseLoss y y'
+        lossValue = (asValue loss)::Float 
+    showLoss 10 epoc lossValue 
+    u <- update model opt loss 1e-1
+    return (u, lossValue)
+  drawLearningCurve "graph-xor.png" "Learning Curve" [("",reverse losses)]
+  forM_ ([[1,1],[1,0],[0,1],[0,0]::[Float]]) $ \input -> do
+    putStr $ show $ input
+    putStr ": "
+    putStrLn $ show ((mlpLayer trainedModel $ asTensor'' device input))
+  -- print trainedModel
+  where for = flip map
+```
+`device = Device CUDA 0` モデルを配置する計算環境の指定
+`hypParams = MLPHypParams device 2 [(3,Sigmoid),(1,Sigmoid)]`ネットワークの設計図、初期設定を定義している
+`MLPHypParams`の引数の意味は、第一引数にモデルを配置する計算環境、第二引数に入力層のサイズ、第三引数に隠れ層と出力層の構成のリスト
+
+`((trainedModel,_),losses) <- mapAccumM [1..iter] (initModel,GD) $ \epoc (model,opt) -> do`
+`mapAccumM`関数は状態を更新しながらループを回して、各ステップの結果をリストとして蓄積する
+`GD`は最適化手法である勾配降下法
+```
+let loss = sumTensors $ for trainingData $ \(input,output) ->
+                  let y = asTensor'' device output
+                      y' = mlpLayer model $ asTensor'' device input
+                  in mseLoss y y'
+```
+ロスの計算
+4つの訓練データ全てのズレを足し合わせて、このエポックでの全体の誤差とする。
+`u <- update model opt loss 1e-1`計算された全体の誤差を元に誤差逆伝播法を自動で実行する。どの重みをどう変えれば誤差が減るかを計算し、オプティマイザを使ってモデルを少し修正する。
+
+bで解読したMlpXor.hsとの違い
+- MlpXor.hsは型を自分で定義しているが、これはTorch.Layer.MLPモジュールをそのまま利用している。
+- 学習データをMlpXor.hsは実行時に乱数でテンソルを生成し計算しているのに対し、事前に定義した静的なリストを使用している。
+- 実行デバイスがMlpXor.hsはデフォルトのデバイスの対し、GPUを明示的に指定している。
+
+### d ###
+ステップ関数
+`
+nonlinearitySpec = toType Float . flip gt (asTensor (0.0 :: Float))
+`
+この0以下の値の場合0、0以上の場合1とした場合、微分可能でないので、エラーになってしまった。
+
+`
+シグモイド関数
+`
+nonlinearitySpec = Torch.sigmoid
+`
+学習ループを2000回にした場合
+`
+Iteration: 1100 | Loss: Tensor Float []  0.2543   
+Iteration: 1200 | Loss: Tensor Float []  0.3510   
+Iteration: 1300 | Loss: Tensor Float []  0.3135   
+Iteration: 1400 | Loss: Tensor Float []  0.2706   
+Iteration: 1500 | Loss: Tensor Float []  0.2521   
+Iteration: 1600 | Loss: Tensor Float []  0.2412   
+Iteration: 1700 | Loss: Tensor Float []  0.2418   
+Iteration: 1800 | Loss: Tensor Float []  0.2650   
+Iteration: 1900 | Loss: Tensor Float []  0.2615   
+Iteration: 2000 | Loss: Tensor Float []  0.2575   
+Final Model:
+0, 0 => Tensor Float []  0.5310   
+0, 1 => Tensor Float []  0.5411   
+1, 0 => Tensor Float []  0.5383   
+1, 1 => Tensor Float []  0.5491   
+`
+結果は0.5付近になってしまい、学習に失敗している。
+
+ループ回数を5000回にした場合
+`
+Iteration: 100 | Loss: Tensor Float []  0.2487   
+Iteration: 200 | Loss: Tensor Float []  0.2411   
+Iteration: 300 | Loss: Tensor Float []  0.3080   
+Iteration: 400 | Loss: Tensor Float []  0.2597   
+Iteration: 500 | Loss: Tensor Float []  0.3394   
+Iteration: 600 | Loss: Tensor Float []  0.2731   
+Iteration: 700 | Loss: Tensor Float []  0.2316   
+Iteration: 800 | Loss: Tensor Float []  0.1673   
+Iteration: 900 | Loss: Tensor Float []  0.3735   
+Iteration: 1000 | Loss: Tensor Float []  0.2717   
+Iteration: 1100 | Loss: Tensor Float []  0.2236   
+Iteration: 1200 | Loss: Tensor Float []  0.1835   
+Iteration: 1300 | Loss: Tensor Float []  0.2854   
+Iteration: 1400 | Loss: Tensor Float []  0.1061   
+Iteration: 1500 | Loss: Tensor Float []  0.1164   
+Iteration: 1600 | Loss: Tensor Float []  0.3178   
+Iteration: 1700 | Loss: Tensor Float []  0.3059   
+Iteration: 1800 | Loss: Tensor Float []  0.1194   
+Iteration: 1900 | Loss: Tensor Float []  0.1211   
+Iteration: 2000 | Loss: Tensor Float []  9.7972e-2
+Iteration: 2100 | Loss: Tensor Float []  5.8387e-2
+Iteration: 2200 | Loss: Tensor Float []  2.2433e-2
+Iteration: 2300 | Loss: Tensor Float []  1.8620e-2
+Iteration: 2400 | Loss: Tensor Float []  7.2328e-3
+Iteration: 2500 | Loss: Tensor Float []  3.5052e-4
+Iteration: 2600 | Loss: Tensor Float []  1.7001e-4
+Iteration: 2700 | Loss: Tensor Float []  1.9708e-4
+Iteration: 2800 | Loss: Tensor Float []  6.8594e-5
+Iteration: 2900 | Loss: Tensor Float []  4.3768e-5
+Iteration: 3000 | Loss: Tensor Float []  1.4340e-5
+Iteration: 3100 | Loss: Tensor Float []  4.5668e-6
+Iteration: 3200 | Loss: Tensor Float []  6.3190e-6
+Iteration: 3300 | Loss: Tensor Float []  8.5200e-7
+Iteration: 3400 | Loss: Tensor Float []  1.1239e-7
+Iteration: 3500 | Loss: Tensor Float []  2.3594e-7
+Iteration: 3600 | Loss: Tensor Float []  7.0001e-8
+Iteration: 3700 | Loss: Tensor Float []  1.5425e-8
+Iteration: 3800 | Loss: Tensor Float []  7.0032e-9
+Iteration: 3900 | Loss: Tensor Float []  4.7738e-9
+Iteration: 4000 | Loss: Tensor Float []  5.6403e-11
+Iteration: 4100 | Loss: Tensor Float []  3.2191e-10
+Iteration: 4200 | Loss: Tensor Float []  3.5840e-10
+Iteration: 4300 | Loss: Tensor Float []  7.4268e-11
+Iteration: 4400 | Loss: Tensor Float []  1.0360e-11
+Iteration: 4500 | Loss: Tensor Float []  9.2406e-12
+Iteration: 4600 | Loss: Tensor Float []  4.2668e-12
+Iteration: 4700 | Loss: Tensor Float []  5.4357e-13
+Iteration: 4800 | Loss: Tensor Float []  2.7178e-13
+Iteration: 4900 | Loss: Tensor Float []  8.8818e-14
+Iteration: 5000 | Loss: Tensor Float []  7.1054e-14
+Final Model:
+0, 0 => Tensor Float []  1.1921e-7
+0, 1 => Tensor Float []  1.0000   
+1, 0 => Tensor Float []  1.0000   
+1, 1 => Tensor Float []  8.9407e-7
+`
+学習に成功した
+
+中間層を15にした場合
+`
+Iteration: 100 | Loss: Tensor Float []  0.2720   
+Iteration: 200 | Loss: Tensor Float []  0.2716   
+Iteration: 300 | Loss: Tensor Float []  0.2559   
+Iteration: 400 | Loss: Tensor Float []  0.3762   
+Iteration: 500 | Loss: Tensor Float []  0.3805   
+Iteration: 600 | Loss: Tensor Float []  0.1760   
+Iteration: 700 | Loss: Tensor Float []  8.0595e-3
+Iteration: 800 | Loss: Tensor Float []  0.2655   
+Iteration: 900 | Loss: Tensor Float []  2.1321e-2
+Iteration: 1000 | Loss: Tensor Float []  0.1711   
+Iteration: 1100 | Loss: Tensor Float []  0.2874   
+Iteration: 1200 | Loss: Tensor Float []  0.2878   
+Iteration: 1300 | Loss: Tensor Float []  0.2867   
+Iteration: 1400 | Loss: Tensor Float []  4.1684e-2
+Iteration: 1500 | Loss: Tensor Float []  2.5351e-2
+Iteration: 1600 | Loss: Tensor Float []  0.1780   
+Iteration: 1700 | Loss: Tensor Float []  0.1676   
+Iteration: 1800 | Loss: Tensor Float []  0.1325   
+Iteration: 1900 | Loss: Tensor Float []  0.1246   
+Iteration: 2000 | Loss: Tensor Float []  0.1316   
+Final Model:
+0, 0 => Tensor Float []  0.1307   
+0, 1 => Tensor Float []  0.6598   
+1, 0 => Tensor Float []  0.7024   
+1, 1 => Tensor Float []  0.4030   
+`
+少し正解に近くなったが、精度は低い。
+
+中間層を50にした場合
+`
+Iteration: 100 | Loss: Tensor Float []  1.8087e-2
+Iteration: 200 | Loss: Tensor Float []  0.2380   
+Iteration: 300 | Loss: Tensor Float []  0.2100   
+Iteration: 400 | Loss: Tensor Float []  0.2320   
+Iteration: 500 | Loss: Tensor Float []  0.6138   
+Iteration: 600 | Loss: Tensor Float []  0.3480   
+Iteration: 700 | Loss: Tensor Float []  0.7223   
+Iteration: 800 | Loss: Tensor Float []  0.1726   
+Iteration: 900 | Loss: Tensor Float []  0.4628   
+Iteration: 1000 | Loss: Tensor Float []  0.1607   
+Iteration: 1100 | Loss: Tensor Float []  3.8685e-3
+Iteration: 1200 | Loss: Tensor Float []  3.8478e-2
+Iteration: 1300 | Loss: Tensor Float []  5.2448e-3
+Iteration: 1400 | Loss: Tensor Float []  1.4943e-3
+Iteration: 1500 | Loss: Tensor Float []  2.7464e-3
+Iteration: 1600 | Loss: Tensor Float []  1.0041e-3
+Iteration: 1700 | Loss: Tensor Float []  3.3425e-4
+Iteration: 1800 | Loss: Tensor Float []  3.7690e-5
+Iteration: 1900 | Loss: Tensor Float []  1.4626e-5
+Iteration: 2000 | Loss: Tensor Float []  4.2046e-6
+Final Model:
+0, 0 => Tensor Float []  3.4666e-3
+0, 1 => Tensor Float []  0.9979   
+1, 0 => Tensor Float []  0.9997   
+1, 1 => Tensor Float []  3.6744e-3
+`
+ほぼ学習できているが、ループ回数を増やした時ほどの精度はない。
+
+
+中間層を100にした場合
+`
+Iteration: 100 | Loss: Tensor Float []  5.5643e-2
+Iteration: 200 | Loss: Tensor Float []  0.9768   
+Iteration: 300 | Loss: Tensor Float []  0.4665   
+Iteration: 400 | Loss: Tensor Float []  0.5208   
+Iteration: 500 | Loss: Tensor Float []  1.9436e-2
+Iteration: 600 | Loss: Tensor Float []  0.1979   
+Iteration: 700 | Loss: Tensor Float []  0.1491   
+Iteration: 800 | Loss: Tensor Float []  9.8953e-2
+Iteration: 900 | Loss: Tensor Float []  7.2808e-4
+Iteration: 1000 | Loss: Tensor Float []  0.4758   
+Iteration: 1100 | Loss: Tensor Float []  0.1499   
+Iteration: 1200 | Loss: Tensor Float []  6.3653e-3
+Iteration: 1300 | Loss: Tensor Float []  9.7968e-3
+Iteration: 1400 | Loss: Tensor Float []  0.2750   
+Iteration: 1500 | Loss: Tensor Float []  0.3101   
+Iteration: 1600 | Loss: Tensor Float []  0.2718   
+Iteration: 1700 | Loss: Tensor Float []  0.1485   
+Iteration: 1800 | Loss: Tensor Float []  0.3724   
+Iteration: 1900 | Loss: Tensor Float []  0.2884   
+Iteration: 2000 | Loss: Tensor Float []  1.3772e-4
+Final Model:
+0, 0 => Tensor Float []  6.4905e-2
+0, 1 => Tensor Float []  0.9908   
+1, 0 => Tensor Float []  0.5223   
+1, 1 => Tensor Float []  0.5572 
+`
+学習に失敗している。
+
+バッチサイズを４にした場合
+`
+Iteration: 100 | Loss: Tensor Float []  0.2382   
+Iteration: 200 | Loss: Tensor Float []  0.2762   
+Iteration: 300 | Loss: Tensor Float []  0.2486   
+Iteration: 400 | Loss: Tensor Float []  0.3807   
+Iteration: 500 | Loss: Tensor Float []  0.2106   
+Iteration: 600 | Loss: Tensor Float []  0.2485   
+Iteration: 700 | Loss: Tensor Float []  0.2257   
+Iteration: 800 | Loss: Tensor Float []  0.2188   
+Iteration: 900 | Loss: Tensor Float []  0.1795   
+Iteration: 1000 | Loss: Tensor Float []  0.2885   
+Iteration: 1100 | Loss: Tensor Float []  0.2573   
+Iteration: 1200 | Loss: Tensor Float []  0.2153   
+Iteration: 1300 | Loss: Tensor Float []  0.1929   
+Iteration: 1400 | Loss: Tensor Float []  0.2584   
+Iteration: 1500 | Loss: Tensor Float []  0.2432   
+Iteration: 1600 | Loss: Tensor Float []  0.2438   
+Iteration: 1700 | Loss: Tensor Float []  0.3645   
+Iteration: 1800 | Loss: Tensor Float []  0.2509   
+Iteration: 1900 | Loss: Tensor Float []  0.2512   
+Iteration: 2000 | Loss: Tensor Float []  0.2392   
+Final Model:
+0, 0 => Tensor Float []  0.6094   
+0, 1 => Tensor Float []  0.5739   
+1, 0 => Tensor Float []  0.6163   
+1, 1 => Tensor Float []  0.5641 
+`
+学習に失敗した。
+
+一番精度が上がるのは、学習ループ回数を増やすことだとわかった。

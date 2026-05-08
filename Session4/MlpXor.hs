@@ -3,7 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Main where
+module MlpXor where
 
 import Control.Monad (when)
 import Data.List (foldl', intersperse, scanl')
@@ -68,7 +68,8 @@ main = do
     sample $
       MLPSpec
         { feature_counts = [2, 2, 1],   --入力層2 -> 隠れ層2 -> 出力層1
-          nonlinearitySpec = Torch.tanh
+        --   nonlinearitySpec = Torch.tanh
+          nonlinearitySpec = Torch.sigmoid
         }
   trained <- foldLoop init numIters $ \state i -> do
     input <- randIO' [batchSize, 2] >>= return . (toDType Float) . (gt 0.5)
@@ -87,7 +88,8 @@ main = do
   where
     optimizer = GD
     tensorXOR :: Tensor -> Tensor
-    tensorXOR t = (1 - (1 - a) * (1 - b)) * (1 - (a * b))
+    tensorXOR t = (one - (one - a) * (one - b)) * (one - (a * b))
       where
         a = select 1 0 t
         b = select 1 1 t
+        one = asTensor (1.0 :: Float)
