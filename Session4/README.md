@@ -1,6 +1,6 @@
-#　Hands-on tasks　#
+#　Hands-on tasks
 
-##　1 Build and train an AND gate using a simple perceptron　##
+##　1 Build and train an AND gate using a simple perceptron
 
 ```
 Epoch 1 - Total Error: 3.0
@@ -104,9 +104,9 @@ main = do
       putStrLn $ "Input: " ++ show x ++ " -> Output: " ++ show (asValue pred :: Float)
 ```
 
-##　2 Build a XOR gate using a multi-layer perceptron　##
+##　2 Build a XOR gate using a multi-layer perceptron
 
-###　a　###
+###　a
 ```
 Iteration: 100 | Loss: Tensor Float []  0.2293   
 Iteration: 200 | Loss: Tensor Float []  0.2749   
@@ -135,16 +135,16 @@ Final Model:
 1, 1 => Tensor Float []  0.0000
 ```
 
-###　b　###
+###　b
 ```
 data MLPSpec = MLPSpec
   { feature_counts :: [Int],
     nonlinearitySpec :: Tensor -> Tensor
   }
 ```
-ネットワークの設計図
-feature_countsは各層のニューロンの数
-nonlinearitySpecは活性化関数
+Network architecture specification:
+* `feature_counts`: The number of neurons in each layer.
+* `nonlinearitySpec`: The activation function.
 
 ```
 data MLP = MLP
@@ -153,11 +153,12 @@ data MLP = MLP
   }
   deriving (Generic, Parameterized)
 ```
-実際にメモリ上に存在するネットワークの構造
-Linear型・・・線形層
-      　　　　w * x + b という計算を行い、重みとバイアスを持つ
-deriving (Generic, Parameterized)はこのネットワークの中に入っている重みとバイアスを自動的に見つけてくれるためのコード
-Haskellは副作用を嫌う言語なため、設計と実体を分けて定義し、設計は純粋な値で表現し、実体はランダムに初期化される
+The actual network structure instantiated in memory:
+* `Linear`: A linear layer. It performs the computation `w * x + b` and holds the weights and biases.
+* `deriving (Generic, Parameterized)`: Automatically discovers and registers the parameters (weights and biases) contained within the network.
+
+**Note on Haskell's design philosophy:** 
+Because Haskell strongly avoids side effects, the network's specification and its actual instance are separated. The design is defined as pure values, whereas the actual instance is randomly initialized.
 
 ```
 instance Randomizable MLPSpec MLP where
@@ -171,12 +172,14 @@ instance Randomizable MLPSpec MLP where
         where
           shift (a, b) c = (b, c)
 ```
-設計図(MLPSpec)からランダムな初期値を持った実体(MLP)を生み出すための具体的な組み立て手順
-MLPSPec {..}は設計図の中に入っているfeature_contentsとnonlinearitySpecという変数をこの中でそのまま使えるように展開するための指示
-mkLayerSizesという関数は、各層のLinearを作るために、入力の数と出力の数のペアを作成する関数。今回は入力層２、隠れ層２、出力層１なので、一層目の入力は２出力は２。二層目の入力は２、出力は１となる。よって完成したリストは[(2,2), (2,1)]
-uncurry関数は「二つの引数を別々に受け取る関数」を「タプル一つだけ受け取る関数に変換する関数」　ex (+) (1, 2) -> ❌　　uncurry (+) (1, 2) -> ⭕️
-linearsには具体的な値を持った重みとバイアスを持つ層のリストが格納される
-sampleでランダムに値が入れられる
+Defines the concrete steps to instantiate an `MLP` with random initial weights from the `MLPSpec` blueprint:
+
+* **`MLPSpec {..}`**: Unpacks the record fields (`feature_counts` and `nonlinearitySpec`) so they can be accessed directly. (Uses Haskell's RecordWildCards).
+* **`mkLayerSizes`**: Generates pairs of input and output sizes for each `Linear` layer. For a network with an input of 2, hidden layer of 2, and output of 1, it produces `[(2, 2), (2, 1)]` (Layer 1: 2 in / 2 out, Layer 2: 2 in / 1 out).
+* **`uncurry`**: Converts a function taking two separate arguments into one taking a single tuple.
+  * Example: `(+) (1, 2)` -> ❌ 
+  * `uncurry (+) (1, 2)` -> ⭕️
+* **`sample` & `linears`**: `sample` initializes the parameters randomly, and `linears` stores the resulting list of layers containing the actual weights and biases.
 
 ```
 mlp :: MLP -> Tensor -> Tensor
@@ -184,19 +187,17 @@ mlp MLP {..} input = foldl' revApply input $ intersperse nonlinearity $ map line
   where
     revApply x f = f x
 ```
-予測を行う処理の定義
-層がいくつあっても自動的にパイプラインを組み立ててデータを流し込めるような仕組みを作っている
-map linear layersで「層のデータのリスト」を「計算してくれる関数のリスト」に変換している
-linear関数はlinear層のデータを使って、Wx+bの計算をする関数
-intersperse関数は、リストの要素と要素の間に、指定したものを挟み込む関数
-`[1層目の計算, tanh, 2層目の計算]`
-foldl' revApply inputでデータをパイプラインに流し込んでいる
-以下のような順番でバケツリレーされている
-1. inputを「１層目の計算」に入れる→結果A
-2. 結果Aをtanhに入れる→結果B
-3. 結果Bを「２層目の計算」に入れる→最終的な予測値
+Defines the prediction process (forward pass). It dynamically builds a computational pipeline that can feed data through any number of layers:
 
-学習コード
+* **`map linear layers`**: Converts the list of layer parameters into a list of executable functions. (The `linear` function applies the `W * x + b` computation using the layer's data).
+* **`intersperse`**: Inserts the activation function between each layer's computation.
+  * e.g., `[1st layer computation, tanh, 2nd layer computation]`
+* **`foldl' revApply input`**: Feeds the input data through the constructed pipeline.
+
+The data flows sequentially like a bucket brigade (relay):
+1. Pass `input` through the 1st layer computation -> **Result A**
+2. Pass **Result A** through the `tanh` activation -> **Result B**
+3. Pass **Result B** through the 2nd layer computation -> **Final prediction value**
 
 ```
 batchSize = 2
@@ -209,30 +210,30 @@ numIters = 2000
           nonlinearitySpec = Torch.tanh
         }
 ```
-初期化
-`batchSize = 2` 一回の学習で、２個のデータをまとめて処理する
-`numIters = 2000` 学習ループを2000回繰り返す
+Initialization. 
+`batchSize = 2` The number of data samples processed together in a single training step.  
+`numIters = 2000` The total number of iterations for the training loop.  
 
 ```
   trained <- foldLoop init numIters $ \state i -> do
     input <- randIO' [batchSize, 2] >>= return . (toDType Float) . (gt 0.5)
 ```
-学習ループの開始とデータの自動生成を行っている
-`randIO` 0.0~0.1のランダムな少数を、2行2列のテンソルで生成する
-ランダムに生成された値が、0.5より小さい場合1返される。0.5より大きい場合0が返される。そして[0,1], [1,1]のようなランダムな入力データを毎回２ペア生成する。
-
+**Training loop and dynamic data generation:**
+* `randIO`: Generates a `2x2` tensor containing random floats between 0.0 and 1.0.
+* **Thresholding**: Converts the random floats into binary values (returns 1 if less than 0.5, and 0 if greater). This dynamically generates 2 pairs of random binary input data (e.g., `[0, 1]`, `[1, 1]`) in every iteration.
 ```
     let (y, y') = (tensorXOR input, squeezeAll $ model state input)
         loss = mseLoss y y'
 ```
-`y`は正解。`y'`は予測値
-mseLossで誤差を計算する。平均二乗誤差が計算される。
-
+* `y`: The ground truth (correct answer). 
+* `y'`:  The model's prediction. 
+* `mseLoss`: Computes the Mean Squared Error (MSE) between the prediction and the ground truth. 
 ```
     (newState, _) <- runStep state optimizer loss 1e-1
     return newState
 ```
-計算されたlossを減らすためにrunStep関数がネットワークの中にある全ての重みとバイアスの勾配を自動微分で計算し、一気に更新する。
+**Parameter update
+To minimize the `loss`, the `runStep` function uses automatic differentiation (backpropagation) to calculate the gradients for all weights and biases, and updates them simultaneously.
 
 ```
   where
@@ -243,9 +244,9 @@ mseLossで誤差を計算する。平均二乗誤差が計算される。
         a = select 1 0 t
         b = select 1 1 t
 ```
-算数のみでXORの正解を作っている。
+Generates the correct XOR answers using only arithmetic operations.
 
-### c ###
+### c
 ```
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -294,41 +295,45 @@ main = do
   -- print trainedModel
   where for = flip map
 ```
-`device = Device CUDA 0` モデルを配置する計算環境の指定
-`hypParams = MLPHypParams device 2 [(3,Sigmoid),(1,Sigmoid)]`ネットワークの設計図、初期設定を定義している
-`MLPHypParams`の引数の意味は、第一引数にモデルを配置する計算環境、第二引数に入力層のサイズ、第三引数に隠れ層と出力層の構成のリスト
+* `device = Device CUDA 0`: Specifies the hardware device for the model.
+* `hypParams = MLPHypParams device 2 [(3,Sigmoid),(1,Sigmoid)]`: Defines the neural network architecture and its initial settings.
+* `MLPHypParams`takes three arguments: 
+1. The computing device for the model.
+2. The size of the input layer.
+3. A list containing the configurations for the hidden and output layers.
 
 `((trainedModel,_),losses) <- mapAccumM [1..iter] (initModel,GD) $ \epoc (model,opt) -> do`
-`mapAccumM`関数は状態を更新しながらループを回して、各ステップの結果をリストとして蓄積する
-`GD`は最適化手法である勾配降下法
+* `mapAccumM`: Iterates through the loop while updating the state, accumulating the results of each step into a list.
+* `GD`: Stands for Gradient Descent, the optimization method used.
 ```
 let loss = sumTensors $ for trainingData $ \(input,output) ->
                   let y = asTensor'' device output
                       y' = mlpLayer model $ asTensor'' device input
                   in mseLoss y y'
 ```
-ロスの計算
-4つの訓練データ全てのズレを足し合わせて、このエポックでの全体の誤差とする。
-`u <- update model opt loss 1e-1`計算された全体の誤差を元に誤差逆伝播法を自動で実行する。どの重みをどう変えれば誤差が減るかを計算し、オプティマイザを使ってモデルを少し修正する。
+### Loss Calculation
+Aggregates the errors from all 4 training data samples to determine the total loss for the current epoch.
 
-bで解読したMlpXor.hsとの違い
-- MlpXor.hsは型を自分で定義しているが、これはTorch.Layer.MLPモジュールをそのまま利用している。
-- 学習データをMlpXor.hsは実行時に乱数でテンソルを生成し計算しているのに対し、事前に定義した静的なリストを使用している。
-- 実行デバイスがMlpXor.hsはデフォルトのデバイスの対し、GPUを明示的に指定している。
+- **`u <- update model opt loss 1e-1`**: Automatically executes backpropagation based on the total loss. It calculates the necessary weight adjustments to minimize the error and updates the model's parameters using the optimizer.
 
-### d ###
-ステップ関数
+### Differences from `MlpXor.hs` (decoded in part b)
+- **Module Usage**: While `MlpXor.hs` defines its own types, this implementation directly leverages the `Torch.Layer.MLP` module.
+- **Training Data**: `MlpXor.hs` generates random tensors for training data at runtime, whereas this script uses a predefined static list.
+- **Execution Device**: `MlpXor.hs` relies on the default device, but this explicitly specifies the GPU.
+
+### d
+### Step Function
 `
 nonlinearitySpec = toType Float . flip gt (asTensor (0.0 :: Float))
 `
-この0以下の値の場合0、0以上の場合1とした場合、微分可能でないので、エラーになってしまった。
+Attempting to use this step function—which outputs `0` for values `<= 0` and `1` for values `> 0`—resulted in a runtime error. This is because a step function is non-differentiable, meaning the optimizer cannot calculate the gradients required for backpropagation.
 
 `
-シグモイド関数
+### Sifmoid Function
 `
 nonlinearitySpec = Torch.sigmoid
 `
-学習ループを2000回にした場合
+### `numIters = 2000`
 `
 Iteration: 1100 | Loss: Tensor Float []  0.2543   
 Iteration: 1200 | Loss: Tensor Float []  0.3510   
@@ -346,9 +351,9 @@ Final Model:
 1, 0 => Tensor Float []  0.5383   
 1, 1 => Tensor Float []  0.5491   
 `
-結果は0.5付近になってしまい、学習に失敗している。
+All output values converged to approximately **0.5**.
 
-ループ回数を5000回にした場合
+### `numInters = 5000`
 `
 Iteration: 100 | Loss: Tensor Float []  0.2487   
 Iteration: 200 | Loss: Tensor Float []  0.2411   
@@ -406,9 +411,9 @@ Final Model:
 1, 0 => Tensor Float []  1.0000   
 1, 1 => Tensor Float []  8.9407e-7
 `
-学習に成功した
+The training was successful.
 
-中間層を15にした場合
+### Adjusting the hidden layer to 15 units.
 `
 Iteration: 100 | Loss: Tensor Float []  0.2720   
 Iteration: 200 | Loss: Tensor Float []  0.2716   
@@ -436,9 +441,9 @@ Final Model:
 1, 0 => Tensor Float []  0.7024   
 1, 1 => Tensor Float []  0.4030   
 `
-少し正解に近くなったが、精度は低い。
+The results started to approach the correct values, but the accuracy remains low.
 
-中間層を50にした場合
+### Adjusting the hidden layer to 50 units.
 `
 Iteration: 100 | Loss: Tensor Float []  1.8087e-2
 Iteration: 200 | Loss: Tensor Float []  0.2380   
@@ -466,10 +471,9 @@ Final Model:
 1, 0 => Tensor Float []  0.9997   
 1, 1 => Tensor Float []  3.6744e-3
 `
-ほぼ学習できているが、ループ回数を増やした時ほどの精度はない。
+With 15 hidden units, the model successfully began to learn the XOR pattern, though it did not reach the same level of precision as the version with a higher iteration count.
 
-
-中間層を100にした場合
+### Adjustin the hidden layer to 100 units.
 `
 Iteration: 100 | Loss: Tensor Float []  5.5643e-2
 Iteration: 200 | Loss: Tensor Float []  0.9768   
@@ -497,9 +501,9 @@ Final Model:
 1, 0 => Tensor Float []  0.5223   
 1, 1 => Tensor Float []  0.5572 
 `
-学習に失敗している。
+The training failed to converge.
 
-バッチサイズを４にした場合
+### Using a batch size of 4.
 `
 Iteration: 100 | Loss: Tensor Float []  0.2382   
 Iteration: 200 | Loss: Tensor Float []  0.2762   
@@ -527,6 +531,6 @@ Final Model:
 1, 0 => Tensor Float []  0.6163   
 1, 1 => Tensor Float []  0.5641 
 `
-学習に失敗した。
+The training failed to converge.
 
-一番精度が上がるのは、学習ループ回数を増やすことだとわかった。
+Through various experiments, I concluded that **increasing the number of training iterations** is the most effective way to improve the model's accuracy.
