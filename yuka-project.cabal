@@ -157,6 +157,30 @@ executable Session4-perceptron
     , yuka-project
   default-language: Haskell2010
 
+executable Session5-evaluation
+  main-is: Evaluation.hs
+  other-modules:
+      Paths_yuka_project
+  autogen-modules:
+      Paths_yuka_project
+  hs-source-dirs:
+      Session5
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N -main-is Evaluation
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , cassava
+    , containers
+    , gnuplot
+    , hasktorch
+    , hasktorch-tools
+    , matplotlib
+    , nlp-tools
+    , random
+    , vector
+    , yuka-project
+  default-language: Haskell2010
+
 executable session-3-graduate-admission-linear
   main-is: GraduateAdmissionLinear.hs
   other-modules:

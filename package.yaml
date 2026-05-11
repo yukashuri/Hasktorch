@@ -114,6 +114,17 @@ executables:
     dependencies:
     - yuka-project
 
+  Session5-evaluation:
+    main:                Evaluation.hs
+    source-dirs:         Session5
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -main-is Evaluation
+    dependencies:
+    - yuka-project
+
 tests:
   yuka-project-test:
     main:                Spec.hs
