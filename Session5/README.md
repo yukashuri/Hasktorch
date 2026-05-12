@@ -622,3 +622,113 @@ Micro-F1    : 0.7505  /  8.499999999999883e-6
 <img src="learning_curve_run3.png" width="400">
 <img src="learning_curve_run4.png" width="400">
 <img src="learning_curve_run5.png" width="400">
+
+
+## 5
+```
+data TitanicRow = TitanicRow
+  { passengerId :: Int
+  , survived    :: Float  -- 正解ラベル (0.0 or 1.0)
+  , pclass      :: Float
+  , name        :: String
+  , sex         :: String
+  , age         :: Maybe Float  -- 欠損値あり
+  , sibSp       :: Float
+  , parch       :: Float
+  , ticket      :: String
+  , fare        :: Float
+  , cabin       :: Maybe String -- 欠損値多数
+  , embarked    :: Maybe String -- 欠損値あり
+  } deriving (Generic, Show)
+```
+
+```
+instance FromNamedRecord TitanicRow where
+  parseNamedRecord r = TitanicRow
+    <$> r .: "PassengerId"
+    <*> r .: "Survived"
+    <*> r .: "Pclass"
+    <*> r .: "Name"
+    <*> r .: "Sex"
+    <*> r .: "Age"
+    <*> r .: "SibSp"
+    <*> r .: "Parch"
+    <*> r .: "Ticket"
+    <*> r .: "Fare"
+    <*> r .: "Cabin"
+    <*> r .: "Embarked"
+```
+
+```
+-- 2. データの前処理関数 (Preprocessing)
+preprocess :: [TitanicRow] -> [( [Float], [Float] )]
+preprocess rows = do
+    row <- rows
+    
+    -- ① 欠損値の補完 (Fill missing data)
+    -- Ageの欠損値は、タイタニックの平均年齢に近い 29.6 で埋める
+    let ageVal = case age row of
+                    Just a  -> a
+                    Nothing -> 29.6
+                    
+    -- ② 非数値データの数値化 (Categorical to Numerical)
+    -- Sex: female -> 1.0, male -> 0.0
+    let sexVal = if sex row == "female" then 1.0 else 0.0
+    
+    -- Embarked: C -> 0.0, Q -> 1.0, S -> 2.0 (欠損値は一番多いSで埋める)
+    let embarkedVal = case embarked row of
+                        Just "C" -> 0.0
+                        Just "Q" -> 1.0
+                        _        -> 2.0
+
+    -- ③ 正規化 (Normalization)
+    -- 値のスケールを0.0〜1.0付近に揃える
+    let pclassNorm   = pclass row / 3.0
+    let ageNorm      = ageVal / 80.0
+    let sibspNorm    = sibSp row / 8.0
+    let parchNorm    = parch row / 6.0
+    let fareNorm     = fare row / 500.0
+    let embarkedNorm = embarkedVal / 2.0
+
+    -- ④ 不要なカラムの削除 (Feature selection)
+    -- PassengerId, Name, Ticket, Cabin は学習に使わないので特徴量リストに入れない
+    let features = [ pclassNorm, sexVal, ageNorm, sibspNorm, parchNorm, fareNorm, embarkedNorm ]
+    let target   = [ survived row ]
+    
+    return (features, target)
+```
+
+```
+-- 3. CSVを読み込んでテンソルに変換する関数
+loadTitanicData :: FilePath -> IO (Tensor, Tensor)
+loadTitanicData filepath = do
+    csvData <- BL.readFile filepath
+    case decodeByName csvData of
+        Left err -> error $ "CSV読み込みエラー: " ++ err
+        Right (_, records) -> do
+            let dataList = V.toList records
+                processedData = preprocess dataList
+                inputs  = map fst processedData
+                targets = map snd processedData
+            return ( toDType Float $ asTensor inputs
+                   , toDType Float $ asTensor targets )
+```
+
+
+<img src="titanic_learning_curve.png" width="400">
+
+```
+=== モデルの評価（1回勝負！） ===
+[ 混同行列 (Confusion Matrix) ]
+[468,81]
+[109,233]
+
+[ 各評価指標 ]
+Accuracy    : 0.7867564534231201
+Precision(1): 0.7420382165605095
+Recall(1)   : 0.6812865497076024
+F1 Score(1) : 0.7103658536585367
+Macro-F1    : 0.770813477450938
+Weighted-F1 : 0.7848568647966473
+Micro-F1    : 0.7867564534231201
+```

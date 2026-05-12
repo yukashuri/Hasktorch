@@ -151,6 +151,7 @@ runExperiment runId = do
       micF1 = Evaluation.microF1 2 actualInts predInts
   
   return [acc, prec, rec, f1, macF1, weiF1, micF1]
+  
 main :: IO ()
 main = do
   (x, y) <- loadAdmitData "Session5/data/Admission_Predict.csv" 0.7
