@@ -1,6 +1,6 @@
-#　Hands-on tasks
+# Hands-on tasks
 
-##　1 Build and train an AND gate using a simple perceptron
+## 1 Build and train an AND gate using a simple perceptron
 
 ```
 Epoch 1 - Total Error: 3.0
