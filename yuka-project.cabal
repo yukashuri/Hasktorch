@@ -160,7 +160,6 @@ executable Session4-perceptron
 executable Session5-admit
   main-is: Admit.hs
   other-modules:
-      Chart
       Paths_yuka_project
   autogen-modules:
       Paths_yuka_project
@@ -186,7 +185,6 @@ executable Session5-evaluation
   main-is: Evaluation.hs
   other-modules:
       Admit
-      Chart
       Paths_yuka_project
   autogen-modules:
       Paths_yuka_project
