@@ -26,9 +26,9 @@ accuracy actuals preds =
         totalCount = length actuals
     in fromIntegral correctCount / fromIntegral totalCount
 ```
-`Int`同士では割り算できないので、`fromIntegral`を用いて`Double`に変換する
+Since Ints cannot be divided directly, use `fromIntegral` to convert them to Double.
 ## Precision
-これがターゲットであると、予測したもののうち、本当にターゲットだった割合
+The proportion of actual targets among those predicted as targets.
 ```
 -- | 指定したクラスに対する Precision (適合率)
 precision :: Int -> [Int] -> [Int] -> Double
@@ -45,7 +45,7 @@ precision targetClass actuals preds =
         else fromIntegral truePositiveCount / fromIntegral predictedCount
 ```
 ## Recall
-実際に存在するターゲット全体のうち、正しく見つけ出せた割合
+The proportion of actual targets that were correctly identified.
 ```
 -- | 指定したクラスに対する Recall (再現率)
 recall :: Int -> [Int] -> [Int] -> Double
@@ -80,7 +80,7 @@ f1Score targetClass actuals preds =
         else 2 * p * r / (p + r)
 ```
 ## Micro-F1 Score
-全てのクラスを平等に扱う
+Treat all classes equally.
 ```
 -- | Macro-F1 スコア: 全クラスのF1スコアの単純平均
 macroF1 :: Int -> [Int] -> [Int] -> Double
@@ -92,7 +92,7 @@ macroF1 numClasses actuals preds =
         else totalF1 / fromIntegral numClasses
 ```
 ## Weighted-F1 Score
-データの量に応じて評価を変える
+Adjusts the evaluation based on the amount of data.
 ```
 -- | Weighted-F1 スコア: 各クラスのデータ数を重みとした平均
 weightedF1 :: Int -> [Int] -> [Int] -> Double
@@ -112,7 +112,7 @@ weightedF1 numClasses actuals preds =
         else totalWeightedF1 / fromIntegral totalSamples
 ```
 ## Micro-F1 Score
-全体を一つの塊として考える
+Treats the entire dataset as a single pool.
 ```
 -- | Micro-F1 スコア: 全体のTP, FP, FNから計算
 microF1 :: Int -> [Int] -> [Int] -> Double
@@ -302,7 +302,7 @@ loadAdmitData filepath threshold = do
             return ( toDType Float $ asTensor inputs
                    , toDType Float $ asTensor targets )
 ```
-モデルが数字のデカさに惑わされずに、どの項目が本当に合格に重要なのかを純粋に重みで学習できるように正規化を行う。
+Normalization is applied to prevent the model from being skewed by the scale of the values, ensuring it learns the actual significance of each feature for admission strictly based on the learned weights.
 ```
 -- 平均の計算
 average :: [Double] -> Double
@@ -353,7 +353,7 @@ runExperiment runId = do
   
   return [acc, prec, rec, f1, macF1, weiF1, micF1]
 ```
-### モデルの評価
+### Model Evaluation
 ```
   putStrLn "\n=== モデルの評価（1回目の詳細結果） ==="
 
@@ -380,7 +380,7 @@ runExperiment runId = do
   putStrLn $ "Weighted-F1 : " ++ show (Evaluation.weightedF1 2 actualInts predInts)
   putStrLn $ "Micro-F1    : " ++ show (Evaluation.microF1 2 actualInts predInts)
 ```
-### 複数回実行による全指標の評価
+### Evaluation of All Metrics Across Multiple Runs
 ```
   putStrLn "\n=== 複数回実行による全指標の評価 ==="
   let numRuns = 5  -- 実行回数
@@ -419,7 +419,7 @@ runExperiment runId = do
   putStrLn $ "Weighted-F1 : " ++ show avgWeiF1 ++ "  /  " ++ show varWeiF1
   putStrLn $ "Micro-F1    : " ++ show avgMicF1 ++ "  /  " ++ show varMicF1
 ```
-## 結果
+## Results
 ```
   === モデルの評価（1回目の詳細結果） ===
 [ 混同行列 (Confusion Matrix) ]
@@ -447,10 +447,7 @@ Macro-F1    : 0.7463663951036084  /  6.392536013837645e-6
 Weighted-F1 : 0.7539619989101359  /  8.161442255418451e-6
 Micro-F1    : 0.7505  /  8.499999999999883e-6
 ```
-適合率は平均86.0と高いが、再現率が71.0で低い。これは実際に存在するターゲット全体のうち見つけ出せた数が少ないということなので、本当は合格できるはずなのに、不合格であると判定してしまった人が30％もいるということがわかる。
-
-分散がとても小さく、結果が安定していることがわかる。
-
+The average precision is high at 86.0%, but the recall is relatively low at 71.0%. This means the model identified fewer of the actual targets; in other words, it incorrectly predicted "fail" for about 30% of the applicants who actually had the ability to pass. Additionally, the variance is extremely small, indicating that the results are highly stable.
 
 <img src="learning_curve_run1.png" width="400">
 <img src="learning_curve_run2.png" width="400">
@@ -463,28 +460,26 @@ Micro-F1    : 0.7505  /  8.499999999999883e-6
 ## Survey on Loss Function
 
 ### (1) Cross Entropy
-**Definition:** 実際の確率分布とモデルが予測した確率分布の間のずれを計算する指標。
+**Definition:** A metric that calculates the difference between the actual probability distribution and the probability distribution predicted by the model.
 $$H(P,Q)=-\sum_{x}P(x)\log(Q(x))$$
 
 ### (2) Negative Log Likelihood (NLL) / Negative Log Entropy
-**Definition:** モデルが「正解クラス」に対して出力した予測確率の対数にマイナスをかけたもの（自己情報量）。
+**Definition:** The negative logarithm of the predicted probability output by the model for the "true class" (self-information).
 $$NLL=-\log(Q(x_{true}))$$
 
 ### (3) KL Divergence (Kullback-Leibler Divergence)
-**Definition:** 2つの確率分布がどれくらい離れているか（純粋な情報量の差）を測る指標。Cross Entropy からデータ自身が持つ本来のエントロピーを差し引いたものに等しい。
+**Definition:** A metric that measures how far apart two probability distributions are (the pure difference in information). It is equivalent to the Cross Entropy minus the inherent entropy of the data itself.
 $$D_{KL}(P||Q)=\sum_{x}P(x)\log\left(\frac{P(x)}{Q(x)}\right)$$
 
-<!-- ## Comparison in Model
+## Comparison in Model
 大学院合格予測モデルにおいて損失関数を変更して比較実験を行なった。
 
-<!-- ### 実験結果 -->
-<!-- 
+### Results
+
 | Loss Function | Average Accuracy | Precision | Recall | F1 Score | Macro-F1 | Weighted-F1 | Micro-F1 |
 |---------------|------------------|-----------|--------|----------|----------|-------------|----------|
 | **平均二乗誤差** | 0.7775 | 0.9114 | 0.7085 | 0.7972 | 0.7753 | 0.7805 | 0.7775 |
-| **** |  |  |  |
- --> 
-
+| **クロスエントロピー** | 0.6175 | 0.6175 | 1.0 | 0.7635 | 0.3817 | 0.4714 | 0.6175
 
 # 5
 ```

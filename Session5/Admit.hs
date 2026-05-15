@@ -97,7 +97,7 @@ mlp MLP {..} input = foldl' revApply input $ intersperse nonlinearity $ map line
   where
     revApply x f = f x
 
-numIters = 10000
+numIters = 5000
 
 model :: MLP -> Tensor -> Tensor
 model params t = mlp params t
@@ -126,10 +126,10 @@ runExperiment runId = do
   ((trained, _), losses) <- foldLoop ((init, GD), []) numIters $ \((state, opt), lossHistory) i -> do
       let y' = squeezeAll $ Torch.sigmoid $ model state x
           target = squeezeAll y
-          loss = mseLoss target y'
+          -- loss = mseLoss target y'
         -- BCE(クロスエントロピー)の場合
-        --   loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target)
-      (newState, newOpt) <- runStep state opt loss 1e-1
+          loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target)
+      (newState, newOpt) <- runStep state opt loss 1e-3
       let currentLoss = asValue loss :: Float  -- LossをFloatに変換
       return ((newState, newOpt), lossHistory ++ [currentLoss]) -- 履歴に追加
   
@@ -160,7 +160,7 @@ main = do
   
   init <- sample $ MLPSpec
         { feature_counts = [7, 16, 1],
-          nonlinearitySpec = Torch.sigmoid
+          nonlinearitySpec = Torch.relu
         }
         
   let optimizer = GD -- オプティマイザの初期化
@@ -168,21 +168,38 @@ main = do
   -- オプティマイザの更新状態も引き継ぐようにループの型を変更
   ((trained, _), losses) <- foldLoop ((init, optimizer), []) numIters $ \((state, opt), lossHistory) i -> do
     
-    -- モデルの出力結果全体に対して最後にsigmoidをかける (intersperseの仕様回避)
-    let y' = squeezeAll $ Torch.sigmoid $ model state x
-        target = squeezeAll y
-        loss = mseLoss target y'
-        -- loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target) -- BCEの場合
+    -- -- モデルの出力結果全体に対して最後にsigmoidをかける (intersperseの仕様回避)
+    -- let y' = squeezeAll $ Torch.sigmoid $ model state x
+    --     target = squeezeAll y
+    --     -- loss = mseLoss target y'
+    --     loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target) -- BCEの場合
 
-    when (i `mod` 1000 == 0) $ do
-      putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
+    -- when (i `mod` 1000 == 0) $ do
+    --   putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
       
-    -- 新しいオプティマイザ(newOpt)も受け取って次に渡す
-    (newState, newOpt) <- runStep state opt loss 1e-1
+    -- -- 新しいオプティマイザ(newOpt)も受け取って次に渡す
+    -- (newState, newOpt) <- runStep state opt loss 1e-3
     
+    -- let currentLoss = asValue loss :: Float 
+    -- return ((newState, newOpt), lossHistory ++ [currentLoss])
+  
+    -- ★ 1. ここでは sigmoid をかけない！ (Rawな数値 = Logits を出す)
+    let yRaw = squeezeAll $ model state x
+        target = squeezeAll y
+        
+    -- ★ 2. binaryCrossEntropyWithLogitsLoss を使う
+    -- これにより、内部で sigmoid + BCE がセットで安定計算されます
+    let loss = binaryCrossEntropyWithLogits ReduceMean (onesLike target) (onesLike target) target yRaw
+
+    when (i == 0 || i `mod` 1000 == 0) $ do
+      putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
+
+    -- ★ 3. 学習率は 1e-3 くらいで試してみてください
+    (newState, newOpt) <- runStep state opt loss 1e-3
+
     let currentLoss = asValue loss :: Float 
     return ((newState, newOpt), lossHistory ++ [currentLoss])
-  
+
 --   putStrLn "モデルの予測結果（最初の5件分）:"
 --   -- 予測時にも忘れずに sigmoid をかける
 --   let finalPreds = squeezeAll $ Torch.sigmoid $ model trained x
