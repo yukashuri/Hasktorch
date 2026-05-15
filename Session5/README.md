@@ -1,9 +1,8 @@
+# Hands on Tasks
+# 1 Creat Haskell evaluation function to calculate
+
+## Confusion Matrix
 ```
-module Evaluation where
-
-import Torch
-
-
 -- | 混同行列 (Confusion Matrix) の作成
 -- 引数: クラス数, 正解ラベルのリスト, 予測ラベルのリスト
 -- 出力: 2次元リスト [[Int]]
@@ -15,8 +14,9 @@ confusionMatrix numClasses actuals preds =
         -- クラス i と j のペア (i, j) が何回出現するかを数える関数
         count target = length (filter (== target) pairs)
     in [[count (i, j) | j <- [0..numClasses-1]] | i <- [0..numClasses-1]]
-
-
+```
+## Accuracy
+```
 -- | 正解率 (Accuracy) の計算
 accuracy :: [Int] -> [Int] -> Double
 accuracy actuals preds = 
@@ -25,46 +25,63 @@ accuracy actuals preds =
         correctCount = length correctPairs
         totalCount = length actuals
     in fromIntegral correctCount / fromIntegral totalCount
-    
-
+```
+`Int`同士では割り算できないので、`fromIntegral`を用いて`Double`に変換する
+## Precision
+これがターゲットであると、予測したもののうち、本当にターゲットだった割合
+```
 -- | 指定したクラスに対する Precision (適合率)
 precision :: Int -> [Int] -> [Int] -> Double
 precision targetClass actuals preds = 
     let 
         -- zip で正解と予測をペアにする
         pairs = zip actuals preds
-        -- 分母を求める
+        -- 分母を求める pと予測したものの数
         predictedCount = length (filter (\( _, p) -> p == targetClass) pairs)
-        -- 分子を求める
+        -- 分子を求める 正解値と予測値が等しかったものの数
         truePositiveCount = length (filter (\( a, p) -> a == targetClass && p == targetClass) pairs)
     in if predictedCount == 0 
         then 0 
         else fromIntegral truePositiveCount / fromIntegral predictedCount
-
+```
+## Recall
+実際に存在するターゲット全体のうち、正しく見つけ出せた割合
+```
 -- | 指定したクラスに対する Recall (再現率)
 recall :: Int -> [Int] -> [Int] -> Double
 recall targetClass actuals preds = 
     let 
         -- zip で正解と予測をペアにする
         pairs = zip actuals preds
-        -- 分母を求める
+        -- 分母を求める 正解がaの数
         actualCount = length (filter (\( a, _) -> a == targetClass) pairs)
-        -- 分子を求める
+        -- 分子を求める　正解値と予想値が等しかったものの数
         truePositiveCount = length (filter (\( a, p) -> a == targetClass && p == targetClass) pairs)
     in if actualCount == 0 
         then 0 
         else fromIntegral truePositiveCount / fromIntegral actualCount
-
+```
+## F1 score
+$$
+F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+$$
+```
 -- | 指定したクラスに対する F1スコア (調和平均)
 f1Score :: Int -> [Int] -> [Int] -> Double
 f1Score targetClass actuals preds = 
     -- 2 * (P * R) / (P + R)
-    let p = precision targetClass actuals preds
+    let 
+        -- 適合率
+        p = precision targetClass actuals preds
+        -- 再現率
         r = recall targetClass actuals preds
     in if p + r == 0 
         then 0 
         else 2 * p * r / (p + r)
-
+```
+## Micro-F1 Score
+全てのクラスを平等に扱う
+```
 -- | Macro-F1 スコア: 全クラスのF1スコアの単純平均
 macroF1 :: Int -> [Int] -> [Int] -> Double
 macroF1 numClasses actuals preds = 
@@ -73,8 +90,10 @@ macroF1 numClasses actuals preds =
     in if numClasses == 0 
         then 0 
         else totalF1 / fromIntegral numClasses
-
-
+```
+## Weighted-F1 Score
+データの量に応じて評価を変える
+```
 -- | Weighted-F1 スコア: 各クラスのデータ数を重みとした平均
 weightedF1 :: Int -> [Int] -> [Int] -> Double
 weightedF1 numClasses actuals preds = 
@@ -84,14 +103,17 @@ weightedF1 numClasses actuals preds =
         classCounts = [length (filter (\( a, _) -> a == i) pairs) | i <- [0..numClasses-1]]
         -- 各クラスのF1スコアを求める
         f1s = [f1Score i actuals preds | i <- [0..numClasses-1]]
-        -- 重み付きF1スコアを計算
+        -- 重み付きF1スコアを計算 [ データ数 * F1スコア ]
         weightedF1s = zipWith (\count f1 -> fromIntegral count * f1) classCounts f1s
         totalWeightedF1 = sum weightedF1s
         totalSamples = sum classCounts
     in if totalSamples == 0 
         then 0 
         else totalWeightedF1 / fromIntegral totalSamples
-
+```
+## Micro-F1 Score
+全体を一つの塊として考える
+```
 -- | Micro-F1 スコア: 全体のTP, FP, FNから計算
 microF1 :: Int -> [Int] -> [Int] -> Double
 microF1 numClasses actuals preds = 
@@ -105,73 +127,8 @@ microF1 numClasses actuals preds =
     in if truePositives + falsePositives + falseNegatives == 0 
         then 0 
         else 2 * fromIntegral truePositives / (2 * fromIntegral truePositives + fromIntegral falsePositives + fromIntegral falseNegatives)
-
--- ビルドを通すため＆テスト用の main 関数
-main :: IO ()
-main = do
-    putStrLn "=== 評価関数のテスト ==="
-    
-    -- テストデータ（クラス数: 3）
-    let actuals = [0, 1, 2, 0, 1, 2, 0, 0]
-    let preds   = [0, 2, 2, 0, 1, 1, 0, 2]
-    let numClasses = 3
-    
-    putStrLn "\n[混同行列]"
-    let cm = confusionMatrix numClasses actuals preds
-    -- print だと横一列で見にくいので、mapM_ print で1行ずつ綺麗に表示させます
-    mapM_ print cm
-
-    putStrLn "\n[Accuracy]"
-    print (accuracy actuals preds)
-
-    putStrLn "\n[Precision (Class 2)]"
-    -- クラス2に対する適合率を計算
-    print (precision 2 actuals preds)
-
-    putStrLn "\n[Recall (Class 2)]"
-    -- クラス2に対する再現率を計算
-    print (recall 2 actuals preds)
-
-    putStrLn "\n[F1 Score (Class 2)]"
-    -- クラス2に対するF1スコアを計算
-    print (f1Score 2 actuals preds)
-
-    putStrLn "\n[Macro-F1]"
-    print (macroF1 numClasses actuals preds)
-    putStrLn "\n[Weighted-F1]"
-    print (weightedF1 numClasses actuals preds)
-    putStrLn "\n[Micro-F1]"
-    print (microF1 numClasses actuals preds)
-
 ```
-
-```
-[混同行列]
-[3,0,1]
-[0,1,1]
-[0,1,1]
-
-[Accuracy]
-0.625
-
-[Precision (Class 2)]
-0.3333333333333333
-
-[Recall (Class 2)]
-0.5
-
-[F1 Score (Class 2)]
-0.4
-
-[Macro-F1]
-0.5857142857142857
-
-[Weighted-F1]
-0.6535714285714286
-
-[Micro-F1]
-0.625
-```
+# 2 Build and evaluate the model to predict chance of admit
 
 ```
 {-# LANGUAGE DeriveAnyClass #-}
@@ -284,12 +241,12 @@ main = do
           nonlinearitySpec = Torch.sigmoid
         }
         
-  let optimizer = GD -- オプティマイザの初期化
+  let optimizer = GD -- オプティマイザの初期化　GD = 勾配降下法
 
-  -- 【修正】オプティマイザの更新状態も引き継ぐようにループの型を変更
+  -- オプティマイザの更新状態も引き継ぐようにループの型を変更
   ((trained, _), losses) <- foldLoop ((init, optimizer), []) numIters $ \((state, opt), lossHistory) i -> do
     
-    -- 【修正】モデルの出力結果全体に対して最後にsigmoidをかける (intersperseの仕様回避)
+    -- モデルの出力結果全体に対して最後にsigmoidをかける (intersperseの仕様回避)
     let y' = squeezeAll $ Torch.sigmoid $ model state x
         target = squeezeAll y
         loss = mseLoss target y'
@@ -297,14 +254,14 @@ main = do
     when (i `mod` 100 == 0) $ do
       putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
       
-    -- 【修正】新しいオプティマイザ(newOpt)も受け取って次に渡す
-    (newState, newOpt) <- runStep state opt loss 1e-1
+    -- 新しいオプティマイザ(newOpt)も受け取って次に渡す
+    (newState, newOpt) <- runStep state opt loss 1e-1　　-- 1e-1は学習率
     
     let currentLoss = asValue loss :: Float 
     return ((newState, newOpt), lossHistory ++ [currentLoss])
   
   putStrLn "モデルの予測結果（最初の5件分）:"
-  -- 【修正】予測時にも忘れずに sigmoid をかける
+  -- 予測時にも忘れずに sigmoid をかける
   let finalPreds = squeezeAll $ Torch.sigmoid $ model trained x
   print (sliceDim 0 0 5 1 finalPreds)
   
@@ -321,47 +278,9 @@ main = do
   <img src="learning_curve.png" width="400">
 
 
-## 3
+# 3 Evaluate Ex.2 model
 
 ```
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE RecordWildCards #-}
-
-module Admit where
-
-import Evaluation
-
-import Control.Monad (when, foldM, replicateM) -- foldMを追加
-import Data.List (foldl', intersperse, scanl', transpose)
-import GHC.Generics
-import Torch hiding (transpose)
-import Torch.NN      
-import Torch.Optim   
-import qualified Data.ByteString.Lazy as BL
-import Data.Csv
-import qualified Data.Vector as V
-import Chart (drawLearningCurve)
---------------------------------------------------------------------------------
--- Data Loading (Kaggle Admission Data)
---------------------------------------------------------------------------------
-
--- CSVの1行分を表すデータ型
-data AdmitData = AdmitData
-  { serialNo :: Float
-  , gre      :: Float
-  , toefl    :: Float
-  , rating   :: Float
-  , sop      :: Float
-  , lor      :: Float
-  , cgpa     :: Float
-  , research :: Float
-  , chance   :: Float
-  } deriving (Generic, FromRecord, Show)
-  -- FromRecord をつけると、cassavaが自動的にCSVの列と紐づけてくれます
-
-
 -- CSVファイルを読み込んで、(入力テンソル, 正解テンソル) のペアを作る関数
 loadAdmitData :: FilePath -> Float -> IO (Tensor, Tensor)
 loadAdmitData filepath threshold = do
@@ -370,7 +289,7 @@ loadAdmitData filepath threshold = do
         Left err -> error $ "CSV読み込みエラー: " ++ err
         Right records -> do
             let dataList = V.toList records
-                -- 【修正】各特徴量を最大値（概算）で割って正規化 (0~1の範囲に収める)
+                -- 各特徴量を最大値（概算）で割って正規化 (0~1の範囲に収める)
                 inputs = map (\d -> [ gre d / 340.0
                                     , toefl d / 120.0
                                     , rating d / 5.0
@@ -382,53 +301,9 @@ loadAdmitData filepath threshold = do
                 targets = map (\d -> if chance d >= threshold then [1.0 :: Float] else [0.0 :: Float]) dataList                
             return ( toDType Float $ asTensor inputs
                    , toDType Float $ asTensor targets )
-
---------------------------------------------------------------------------------
--- MLP
---------------------------------------------------------------------------------
-
--- ネットワークの設計図
-data MLPSpec = MLPSpec
-  { feature_counts :: [Int],   -- 各層のニューロンの数
-    nonlinearitySpec :: Tensor -> Tensor     -- 活性化関数
-}
-
--- 実際にメモリ上に存在するネットワークの構造
-data MLP = MLP
-  { layers :: [Linear],
-    nonlinearity :: Tensor -> Tensor
-  }
-  deriving (Generic, Parameterized)      -- このネットワークの中に入っている重みとバイアスを自動的に見つけてくれる
--- Linear型・・・線形層
--- w * x + b という計算を行い、重みとバイアスを持つ
-
--- 設計と実体を分ける
--- Haskellが副作用を嫌うから
--- 設計は純粋な値で表現し、実体はランダムに初期化される
-
--- MLPSpecからMLPを作るためのルール
-instance Randomizable MLPSpec MLP where
-  sample MLPSpec {..} = do
-    let layer_sizes = mkLayerSizes feature_counts
-    linears <- mapM sample $ map (uncurry LinearSpec) layer_sizes
-    return $ MLP {layers = linears, nonlinearity = nonlinearitySpec}
-    where
-      mkLayerSizes (a : (b : t)) =
-        scanl shift (a, b) t
-        where
-          shift (a, b) c = (b, c)
-
-mlp :: MLP -> Tensor -> Tensor
-mlp MLP {..} input = foldl' revApply input $ intersperse nonlinearity $ map linear layers
-  where
-    revApply x f = f x
-
-numIters = 2000
-
-model :: MLP -> Tensor -> Tensor
-model params t = mlp params t
-
-
+```
+モデルが数字のデカさに惑わされずに、どの項目が本当に合格に重要なのかを純粋に重みで学習できるように正規化を行う。
+```
 -- 平均の計算
 average :: [Double] -> Double
 average xs = sum xs / fromIntegral (length xs)
@@ -477,44 +352,9 @@ runExperiment runId = do
       micF1 = Evaluation.microF1 2 actualInts predInts
   
   return [acc, prec, rec, f1, macF1, weiF1, micF1]
-main :: IO ()
-main = do
-  (x, y) <- loadAdmitData "Session5/data/Admission_Predict.csv" 0.7
-  
-  init <- sample $ MLPSpec
-        { feature_counts = [7, 16, 1],
-          nonlinearitySpec = Torch.sigmoid
-        }
-        
-  let optimizer = GD -- オプティマイザの初期化
+```
 
-  -- オプティマイザの更新状態も引き継ぐようにループの型を変更
-  ((trained, _), losses) <- foldLoop ((init, optimizer), []) numIters $ \((state, opt), lossHistory) i -> do
-    
-    -- モデルの出力結果全体に対して最後にsigmoidをかける (intersperseの仕様回避)
-    let y' = squeezeAll $ Torch.sigmoid $ model state x
-        target = squeezeAll y
-        loss = mseLoss target y'
-        
-    -- when (i `mod` 100 == 0) $ do
-    --   putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
-      
-    -- 新しいオプティマイザ(newOpt)も受け取って次に渡す
-    (newState, newOpt) <- runStep state opt loss 1e-1
-    
-    let currentLoss = asValue loss :: Float 
-    return ((newState, newOpt), lossHistory ++ [currentLoss])
-  
---   putStrLn "モデルの予測結果（最初の5件分）:"
---   -- 予測時にも忘れずに sigmoid をかける
---   let finalPreds = squeezeAll $ Torch.sigmoid $ model trained x
---   print (sliceDim 0 0 5 1 finalPreds)
-  
---   putStrLn "実際の正解データ（最初の5件分）:"
---   print (sliceDim 0 0 5 1 (squeezeAll y))
-
-  putStrLn "\nTraining Complete!"
-
+```
   putStrLn "\n=== モデルの評価（1回目の詳細結果） ==="
 
   -- 1. 全データをモデルに入れて予測確率を出す
@@ -539,16 +379,8 @@ main = do
   putStrLn $ "Macro-F1    : " ++ show (Evaluation.macroF1 2 actualInts predInts)
   putStrLn $ "Weighted-F1 : " ++ show (Evaluation.weightedF1 2 actualInts predInts)
   putStrLn $ "Micro-F1    : " ++ show (Evaluation.microF1 2 actualInts predInts)
-
-  ------------------------------------------------------------------
-  -- (この下に「学習曲線を生成中...」や複数回実行のコードが続きます)
-  putStrLn "学習曲線を生成中..."
-  drawLearningCurve "Session5/learning_curve2.png" "Admit Model Learning Curve" [("Training Loss", losses)]
-  putStrLn "learning_curve2.png を保存しました！"  -- ← 今のmainの最後の行
-
-  ------------------------------------------------------------------
-  -- 複数回実行による全指標の安定性評価
-  ------------------------------------------------------------------
+```
+```
   putStrLn "\n=== 複数回実行による全指標の評価 ==="
   let numRuns = 5  -- 実行回数
   putStrLn $ show numRuns ++ " 回の実験を開始します（少し時間がかかります）..."
@@ -623,8 +455,35 @@ Micro-F1    : 0.7505  /  8.499999999999883e-6
 <img src="learning_curve_run4.png" width="400">
 <img src="learning_curve_run5.png" width="400">
 
+# 4
 
-## 5
+## Survey on Loss Function
+
+### (1) Cross Entropy
+**Definition:** 実際の確率分布とモデルが予測した確率分布の間のずれを計算する指標。
+$$H(P,Q)=-\sum_{x}P(x)\log(Q(x))$$
+
+### (2) Negative Log Likelihood (NLL) / Negative Log Entropy
+**Definition:** モデルが「正解クラス」に対して出力した予測確率の対数にマイナスをかけたもの（自己情報量）。
+$$NLL=-\log(Q(x_{true}))$$
+
+### (3) KL Divergence (Kullback-Leibler Divergence)
+**Definition:** 2つの確率分布がどれくらい離れているか（純粋な情報量の差）を測る指標。Cross Entropy からデータ自身が持つ本来のエントロピーを差し引いたものに等しい。
+$$D_{KL}(P||Q)=\sum_{x}P(x)\log\left(\frac{P(x)}{Q(x)}\right)$$
+
+<!-- ## Comparison in Model
+大学院合格予測モデルにおいて損失関数を変更して比較実験を行なった。
+
+<!-- ### 実験結果 -->
+<!-- 
+| Loss Function | Average Accuracy | Precision | Recall | F1 Score | Macro-F1 | Weighted-F1 | Micro-F1 |
+|---------------|------------------|-----------|--------|----------|----------|-------------|----------|
+| **平均二乗誤差** | 0.7775 | 0.9114 | 0.7085 | 0.7972 | 0.7753 | 0.7805 | 0.7775 |
+| **** |  |  |  |
+ --> 
+
+
+# 5
 ```
 data TitanicRow = TitanicRow
   { passengerId :: Int
@@ -718,7 +577,7 @@ loadTitanicData filepath = do
 <img src="titanic_learning_curve.png" width="400">
 
 ```
-=== モデルの評価（1回勝負！） ===
+=== モデルの評価 ===
 [ 混同行列 (Confusion Matrix) ]
 [468,81]
 [109,233]

@@ -97,7 +97,7 @@ mlp MLP {..} input = foldl' revApply input $ intersperse nonlinearity $ map line
   where
     revApply x f = f x
 
-numIters = 2000
+numIters = 10000
 
 model :: MLP -> Tensor -> Tensor
 model params t = mlp params t
@@ -123,10 +123,12 @@ runExperiment runId = do
   init <- sample $ MLPSpec { feature_counts = [7, 16, 1], nonlinearitySpec = Torch.sigmoid }
   
   -- ★ 変更点: losses を記録して受け取るように修正
-  ((trained, _), losses) <- foldLoop ((init, GD), []) 2000 $ \((state, opt), lossHistory) i -> do
+  ((trained, _), losses) <- foldLoop ((init, GD), []) numIters $ \((state, opt), lossHistory) i -> do
       let y' = squeezeAll $ Torch.sigmoid $ model state x
           target = squeezeAll y
           loss = mseLoss target y'
+        -- BCE(クロスエントロピー)の場合
+        --   loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target)
       (newState, newOpt) <- runStep state opt loss 1e-1
       let currentLoss = asValue loss :: Float  -- LossをFloatに変換
       return ((newState, newOpt), lossHistory ++ [currentLoss]) -- 履歴に追加
@@ -151,7 +153,7 @@ runExperiment runId = do
       micF1 = Evaluation.microF1 2 actualInts predInts
   
   return [acc, prec, rec, f1, macF1, weiF1, micF1]
-  
+
 main :: IO ()
 main = do
   (x, y) <- loadAdmitData "Session5/data/Admission_Predict.csv" 0.7
@@ -170,9 +172,10 @@ main = do
     let y' = squeezeAll $ Torch.sigmoid $ model state x
         target = squeezeAll y
         loss = mseLoss target y'
-        
-    -- when (i `mod` 100 == 0) $ do
-    --   putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
+        -- loss = binaryCrossEntropyLoss ReduceMean y' target (onesLike target) -- BCEの場合
+
+    when (i `mod` 1000 == 0) $ do
+      putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
       
     -- 新しいオプティマイザ(newOpt)も受け取って次に渡す
     (newState, newOpt) <- runStep state opt loss 1e-1
@@ -218,45 +221,45 @@ main = do
   ------------------------------------------------------------------
   -- (この下に「学習曲線を生成中...」や複数回実行のコードが続きます)
   putStrLn "学習曲線を生成中..."
-  drawLearningCurve "Session5/learning_curve2.png" "Admit Model Learning Curve" [("Training Loss", losses)]
+  drawLearningCurve "Session5/learning_curve3.png" "Admit Model Learning Curve" [("Training Loss", losses)]
   putStrLn "learning_curve2.png を保存しました！"  -- ← 今のmainの最後の行
 
-  ------------------------------------------------------------------
-  -- 複数回実行による全指標の安定性評価
-  ------------------------------------------------------------------
-  putStrLn "\n=== 複数回実行による全指標の評価 ==="
-  let numRuns = 5  -- 実行回数
-  putStrLn $ show numRuns ++ " 回の実験を開始します（少し時間がかかります）..."
+--   ------------------------------------------------------------------
+--   -- 複数回実行による全指標の安定性評価
+--   ------------------------------------------------------------------
+--   putStrLn "\n=== 複数回実行による全指標の評価 ==="
+--   let numRuns = 5  -- 実行回数
+--   putStrLn $ show numRuns ++ " 回の実験を開始します（少し時間がかかります）..."
   
-  -- results は [[Double]] になる
-  -- (例: [ [1回目Acc, 1回目Prec...], [2回目Acc, 2回目Prec...] ])
-  results <- mapM runExperiment [1..numRuns]
+--   -- results は [[Double]] になる
+--   -- (例: [ [1回目Acc, 1回目Prec...], [2回目Acc, 2回目Prec...] ])
+--   results <- mapM runExperiment [1..numRuns]
   
-  -- transpose を使うと、指標ごとにリストをまとめ直せる！
-  -- transposed = [ [全回のAcc], [全回のPrec], [全回のRec]... ]
-  let transposed = transpose results
+--   -- transpose を使うと、指標ごとにリストをまとめ直せる！
+--   -- transposed = [ [全回のAcc], [全回のPrec], [全回のRec]... ]
+--   let transposed = transpose results
   
-  -- 各指標ごとに平均と分散を計算
-  let avgAcc   = average (transposed !! 0)
-      varAcc   = variance (transposed !! 0)
-      avgPrec  = average (transposed !! 1)
-      varPrec  = variance (transposed !! 1)
-      avgRec   = average (transposed !! 2)
-      varRec   = variance (transposed !! 2)
-      avgF1    = average (transposed !! 3)
-      varF1    = variance (transposed !! 3)
-      avgMacF1 = average (transposed !! 4)
-      varMacF1 = variance (transposed !! 4)
-      avgWeiF1 = average (transposed !! 5)
-      varWeiF1 = variance (transposed !! 5)
-      avgMicF1 = average (transposed !! 6)
-      varMicF1 = variance (transposed !! 6)
+--   -- 各指標ごとに平均と分散を計算
+--   let avgAcc   = average (transposed !! 0)
+--       varAcc   = variance (transposed !! 0)
+--       avgPrec  = average (transposed !! 1)
+--       varPrec  = variance (transposed !! 1)
+--       avgRec   = average (transposed !! 2)
+--       varRec   = variance (transposed !! 2)
+--       avgF1    = average (transposed !! 3)
+--       varF1    = variance (transposed !! 3)
+--       avgMacF1 = average (transposed !! 4)
+--       varMacF1 = variance (transposed !! 4)
+--       avgWeiF1 = average (transposed !! 5)
+--       varWeiF1 = variance (transposed !! 5)
+--       avgMicF1 = average (transposed !! 6)
+--       varMicF1 = variance (transposed !! 6)
 
-  putStrLn "\n[ 平均 (Average)  /  分散 (Variance) ]"
-  putStrLn $ "Accuracy    : " ++ show avgAcc ++ "  /  " ++ show varAcc
-  putStrLn $ "Precision(1): " ++ show avgPrec ++ "  /  " ++ show varPrec
-  putStrLn $ "Recall(1)   : " ++ show avgRec ++ "  /  " ++ show varRec
-  putStrLn $ "F1 Score(1) : " ++ show avgF1 ++ "  /  " ++ show varF1
-  putStrLn $ "Macro-F1    : " ++ show avgMacF1 ++ "  /  " ++ show varMacF1
-  putStrLn $ "Weighted-F1 : " ++ show avgWeiF1 ++ "  /  " ++ show varWeiF1
-  putStrLn $ "Micro-F1    : " ++ show avgMicF1 ++ "  /  " ++ show varMicF1
+--   putStrLn "\n[ 平均 (Average)  /  分散 (Variance) ]"
+--   putStrLn $ "Accuracy    : " ++ show avgAcc ++ "  /  " ++ show varAcc
+--   putStrLn $ "Precision(1): " ++ show avgPrec ++ "  /  " ++ show varPrec
+--   putStrLn $ "Recall(1)   : " ++ show avgRec ++ "  /  " ++ show varRec
+--   putStrLn $ "F1 Score(1) : " ++ show avgF1 ++ "  /  " ++ show varF1
+--   putStrLn $ "Macro-F1    : " ++ show avgMacF1 ++ "  /  " ++ show varMacF1
+--   putStrLn $ "Weighted-F1 : " ++ show avgWeiF1 ++ "  /  " ++ show varWeiF1
+--   putStrLn $ "Micro-F1    : " ++ show avgMicF1 ++ "  /  " ++ show varMicF1
