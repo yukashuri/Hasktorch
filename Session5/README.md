@@ -353,7 +353,7 @@ runExperiment runId = do
   
   return [acc, prec, rec, f1, macF1, weiF1, micF1]
 ```
-
+### モデルの評価
 ```
   putStrLn "\n=== モデルの評価（1回目の詳細結果） ==="
 
@@ -380,6 +380,7 @@ runExperiment runId = do
   putStrLn $ "Weighted-F1 : " ++ show (Evaluation.weightedF1 2 actualInts predInts)
   putStrLn $ "Micro-F1    : " ++ show (Evaluation.microF1 2 actualInts predInts)
 ```
+### 複数回実行による全指標の評価
 ```
   putStrLn "\n=== 複数回実行による全指標の評価 ==="
   let numRuns = 5  -- 実行回数
@@ -417,10 +418,9 @@ runExperiment runId = do
   putStrLn $ "Macro-F1    : " ++ show avgMacF1 ++ "  /  " ++ show varMacF1
   putStrLn $ "Weighted-F1 : " ++ show avgWeiF1 ++ "  /  " ++ show varWeiF1
   putStrLn $ "Micro-F1    : " ++ show avgMicF1 ++ "  /  " ++ show varMicF1
-
-  ```
-
-  ```
+```
+## 結果
+```
   === モデルの評価（1回目の詳細結果） ===
 [ 混同行列 (Confusion Matrix) ]
 [125,28]
@@ -446,8 +446,11 @@ F1 Score(1) : 0.7786881134292571  /  1.6044121900775502e-5
 Macro-F1    : 0.7463663951036084  /  6.392536013837645e-6
 Weighted-F1 : 0.7539619989101359  /  8.161442255418451e-6
 Micro-F1    : 0.7505  /  8.499999999999883e-6
-
 ```
+適合率は平均86.0と高いが、再現率が71.0で低い。これは実際に存在するターゲット全体のうち見つけ出せた数が少ないということなので、本当は合格できるはずなのに、不合格であると判定してしまった人が30％もいるということがわかる。
+
+分散がとても小さく、結果が安定していることがわかる。
+
 
 <img src="learning_curve_run1.png" width="400">
 <img src="learning_curve_run2.png" width="400">
@@ -579,15 +582,15 @@ loadTitanicData filepath = do
 ```
 === モデルの評価 ===
 [ 混同行列 (Confusion Matrix) ]
-[468,81]
-[109,233]
+[476,73]
+[108,234]
 
 [ 各評価指標 ]
-Accuracy    : 0.7867564534231201
-Precision(1): 0.7420382165605095
-Recall(1)   : 0.6812865497076024
-F1 Score(1) : 0.7103658536585367
-Macro-F1    : 0.770813477450938
-Weighted-F1 : 0.7848568647966473
-Micro-F1    : 0.7867564534231201
+Accuracy    : 0.7968574635241302
+Precision(1): 0.762214983713355
+Recall(1)   : 0.6842105263157895
+F1 Score(1) : 0.7211093990755008
+Macro-F1    : 0.7806782652923842
+Weighted-F1 : 0.7945174968377208
+Micro-F1    : 0.7968574635241302
 ```

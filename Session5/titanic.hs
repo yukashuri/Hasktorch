@@ -135,7 +135,7 @@ mlp MLP {..} input = foldl' revApply input $ intersperse nonlinearity $ map line
   where
     revApply x f = f x
 
-numIters = 2000
+numIters = 5000
 
 model :: MLP -> Tensor -> Tensor
 model params t = mlp params t
