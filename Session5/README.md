@@ -461,14 +461,17 @@ The average precision is high at 86.0%, but the recall is relatively low at 71.0
 
 ### (1) Cross Entropy
 **Definition:** A metric that calculates the difference between the actual probability distribution and the probability distribution predicted by the model.
+
 $$H(P,Q)=-\sum_{x}P(x)\log(Q(x))$$
 
 ### (2) Negative Log Likelihood (NLL) / Negative Log Entropy
 **Definition:** The negative logarithm of the predicted probability output by the model for the "true class" (self-information).
+
 $$NLL=-\log(Q(x_{true}))$$
 
 ### (3) KL Divergence (Kullback-Leibler Divergence)
 **Definition:** A metric that measures how far apart two probability distributions are (the pure difference in information). It is equivalent to the Cross Entropy minus the inherent entropy of the data itself.
+
 $$D_{KL}(P||Q)=\sum_{x}P(x)\log\left(\frac{P(x)}{Q(x)}\right)$$
 
 ## Comparison in Model
