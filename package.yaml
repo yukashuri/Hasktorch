@@ -31,6 +31,7 @@ dependencies:
 - vector
 - bytestring
 - nlp-tools
+- utf8-string
 
 ghc-options:
 - -Wall
@@ -144,6 +145,17 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     - -main-is Titanic
+    dependencies:
+    - yuka-project
+
+  Session6-word2vec:
+    main:                Word2Vec.hs
+    source-dirs:         Session6
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -main-is Word2Vec
     dependencies:
     - yuka-project
 
