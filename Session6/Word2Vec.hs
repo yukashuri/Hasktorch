@@ -91,67 +91,187 @@ main = do
   -- Create initial embedding (wordDim × wordNum)
   let embsddingSpec = EmbeddingSpec {wordNum = length wordlst + 1, wordDim = 9}
   wordEmb <- makeIndependent $ toyEmbedding embsddingSpec
-  let emb = Embedding {wordEmbedding = wordEmb}
-  -- -- Linear層の初期化
-  -- -- 入力サイズはwordDim（９）、出力サイズはwordNum（辞書の単語数）にする。
-  -- initLinear <- sample $ LinearSpec { in_features = 9, out_features = length wordlst + 1}
 
-  -- -- let emb = Model {
-  --   embeddings = Embedding { wordEmbedding = wordEmb },
-  --   linearLayer = initLinear
-  -- }
+  -- Linear層の初期化
+  initLinear <- sample $ LinearSpec { in_features = 9, out_features = length wordlst + 1}
 
-  let sampleTxt = B.pack $ encode "This is awesome.\nmodel is developing"
-  -- convert word to index
-      idxes = map (map wordToIndex) (preprocess sampleTxt)
-  -- convert to embedding
-      embTxt = embedding' (toDependent $ wordEmbedding emb) (asTensor idxes)
+  let emb = Model {
+        embeddings = Embedding { wordEmbedding = wordEmb },
+        linearLayer = initLinear
+      }
 
+  let sampleTxt = B.pack $ encode "this is awesome\nmodel is developing"
+      flatIdxes = concat $ map (map wordToIndex) (preprocess sampleTxt)
+      inIdxes = init flatIdxes
+      tgtIdxes = tail flatIdxes
 
-  -- let sampleTxt = B.pack $ encode "this is awesome\nmodel is developing"
-  --     -- 単語をインデックスに変換し、1つの平坦なリスト(配列)にする
-  --     flatIdxes = concat $ map (map wordToIndex) (preprocess sampleTxt)
+  -- 【デバッグ1】 letと同じ縦のラインに揃えました
+  putStrLn "--- DEBUG 1: List generated ---"
+  putStrLn $ "inIdxes length: " ++ show (length inIdxes)
+
+  -- ★究極の安全策: Floatの2次元配列として作ってから、1次元に潰してInt64に変換
+  let inFloats = map fromIntegral inIdxes :: [Float]
+      tgtFloats = map fromIntegral tgtIdxes :: [Float]
       
-  --     inIdxes = init flatIdxes
-  --     tgtIdxes = tail flatIdxes
-      
-  --     -- ★究極のハック：一度 Float のリストとして安全にテンソル化し、Int64（整数）にキャストする！
-  --     inTensor  = toDType Int64 $ asTensor (map fromIntegral inIdxes :: [Float])
-  --     tgtTensor = toDType Int64 $ asTensor (map fromIntegral tgtIdxes :: [Float])
+      inTensor  = toDType Int64 $ reshape [length inFloats]  (asTensor [inFloats])
+      tgtTensor = toDType Int64 $ reshape [length tgtFloats] (asTensor [tgtFloats])
 
-  -- -- 学習ループ (500回繰り返す)
-  -- let numIters = 500
-  -- trainedEmb <- foldLoop emb numIters $ \state i -> do
-      
-  --     -- ① 順伝播 (予測スコアの計算)
-  --     let embTxt = embedding' (toDependent $ wordEmbedding (embeddings state)) inTensor
-  --         output = linear (linearLayer state) embTxt
-          
-  --     -- ② 誤差の計算 (予測と正解のズレを計算)
-  --         loss = nllLoss' (logSoftmax (Dim 1) output) tgtTensor
-          
-  --     -- 100回ごとに画面に誤差(Loss)を表示
-  --     when (i `mod` 100 == 0) $ do
-  --         putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
-          
-  --     -- ③ パラメーターの更新
-  --     (newState, _) <- runStep state GD loss 5e-2  -- 学習率 0.05
-      
-  --     return newState
+  -- 【デバッグ2】
+  putStrLn "--- DEBUG 2: Tensor created ---"
+  putStrLn $ "inTensor shape: " ++ show (shape inTensor)
 
-  -- putStrLn "Training Completed!"
-
- -- TODO: Train model. After training, we can obtain the trained patameter, embeddings. This is the trained embedding.
+  -- 学習ループ (500回繰り返す)
+  let numIters = 500
+  putStrLn "--- DEBUG 3: Starting Training Loop ---"
   
-  -- Save params to use trained parameter in the next session
-  -- trainedEmb :: Embedding
-  -- saveParams trainedEmb modelPath
-  -- Save word list
+  trainedEmb <- foldLoop emb numIters $ \state i -> do
+      
+      let embTxt = embedding' (toDependent $ wordEmbedding (embeddings state)) inTensor
+          output = linear (linearLayer state) embTxt
+          loss = nllLoss' (logSoftmax (Dim 1) output) tgtTensor
+          
+      -- 【デバッグ4】
+      when (i == 1) $ putStrLn "--- DEBUG 4: Forward pass 1 completed! ---"
+          
+      (newState, _) <- runStep state GD loss 5e-2
+      
+      -- 【デバッグ5】
+      when (i == 1) $ putStrLn "--- DEBUG 5: Backward pass 1 completed! ---"
+      
+      when (i `mod` 100 == 0) $ do
+          putStrLn $ "Iteration: " ++ show i ++ " (Training...)"
+          
+      return newState
+
+  putStrLn "Training Completed!"
+  
+  -- ★保存処理★
+  let finalEmb = embeddings trainedEmb
+  saveParams finalEmb modelPath
   B.writeFile wordLstPath (B.intercalate (B.pack $ encode "\n") wordlst)
-  
-  -- Load params
-  -- initWordEmb <- makeIndependent $ zeros' [1]
-  -- let initEmb = Embedding {wordEmbedding = initWordEmb}
-  -- loadedEmb <- loadParams initEmb modelPath
 
   return ()
+
+
+--   -- load text file
+--   texts <- B.readFile textFilePath
+
+--   -- Create a unique word list
+--   let wordLines = preprocess texts
+--       wordlst = nub $ concat wordLines
+--       wordToIndex = wordToIndexFactory wordlst
+--   print wordlst
+
+--   -- Create initial embedding (wordDim × wordNum)
+--   let embsddingSpec = EmbeddingSpec {wordNum = length wordlst + 1, wordDim = 9}
+--   wordEmb <- makeIndependent $ toyEmbedding embsddingSpec
+--   -- let emb = Embedding {wordEmbedding = wordEmb}
+--   -- Linear層の初期化
+--   -- 入力サイズはwordDim（９）、出力サイズはwordNum（辞書の単語数）にする。
+--   initLinear <- sample $ LinearSpec { in_features = 9, out_features = length wordlst + 1}
+
+--   let emb = Model {
+--     embeddings = Embedding { wordEmbedding = wordEmb },
+--     linearLayer = initLinear
+--   }
+
+--   -- let sampleTxt = B.pack $ encode "This is awesome.\nmodel is developing"
+--   -- -- convert word to index
+--   --     idxes = map (map wordToIndex) (preprocess sampleTxt)
+--   -- -- convert to embedding
+--   --     embTxt = embedding' (toDependent $ wordEmbedding emb) (asTensor idxes)
+
+--   let sampleTxt = B.pack $ encode "this is awesome\nmodel is developing"
+--       -- 単語をインデックスに変換し、1つの平坦なリスト(配列)にする
+--       flatIdxes = concat $ map (map wordToIndex) (preprocess sampleTxt)
+      
+--       inIdxes = init flatIdxes
+--       tgtIdxes = tail flatIdxes
+      
+--       -- ★修正1: 1次元リストのバグを回避するため、わざと2次元 [inIdxes] にしてテンソル化し、安全に潰す！
+--       inTensor  = squeezeAll $ asTensor [inIdxes]
+--       tgtTensor = squeezeAll $ asTensor [tgtIdxes]
+
+--       putStrLn "--- DEBUG 1: List generated ---"
+--       putStrLn $ "inIdxes length: " ++ show (length inIdxes)
+
+--   -- 学習ループ (500回繰り返す)
+--   let numIters = 500
+--   putStrLn "--- DEBUG 3: Starting Training Loop ---"
+--   trainedEmb <- foldLoop emb numIters $ \state i -> do
+      
+--     -- ① 順伝播
+--     let embTxt = embedding' (toDependent $ wordEmbedding (embeddings state)) inTensor
+--         output = linear (linearLayer state) embTxt
+          
+--     -- ② 誤差の計算
+--         loss = nllLoss' (logSoftmax (Dim 1) output) tgtTensor
+
+--     when (i == 1) $ putStrLn "--- DEBUG 4: Forward pass 1 completed! ---"
+          
+--     -- ③ パラメーターの更新
+--     (newState, _) <- runStep state GD loss 5e-2
+
+--     when (i == 1) $ putStrLn "--- DEBUG 5: Backward pass 1 completed! ---"
+
+
+          
+--       -- ★修正2: 誤差(loss)を表示しようとするとクラッシュするHasktorchのバグを回避するため、文字だけを表示！
+--     when (i `mod` 100 == 0) $ do
+--       putStrLn $ "Iteration: " ++ show i ++ " (Training...)"
+      
+--     return newState
+
+--   putStrLn "Training Completed!"
+  
+--   -- ★保存処理★
+--   let finalEmb = embeddings trainedEmb
+--   saveParams finalEmb modelPath
+  
+--   -- let sampleTxt = B.pack $ encode "this is awesome\nmodel is developing"
+--   --     -- 単語をインデックスに変換し、1つの平坦なリスト(配列)にする
+--   --     flatIdxes = concat $ map (map wordToIndex) (preprocess sampleTxt)
+      
+--   --     inIdxes = init flatIdxes
+--   --     tgtIdxes = tail flatIdxes
+      
+--   --     -- ★究極のハック：一度 Float のリストとして安全にテンソル化し、Int64（整数）にキャストする！
+--   --     inTensor  = toDType Int64 $ asTensor (map fromIntegral inIdxes :: [Float])
+--   --     tgtTensor = toDType Int64 $ asTensor (map fromIntegral tgtIdxes :: [Float])
+
+--   -- -- 学習ループ (500回繰り返す)
+--   -- let numIters = 500
+--   -- trainedEmb <- foldLoop emb numIters $ \state i -> do
+      
+--   --     -- ① 順伝播 (予測スコアの計算)
+--   --     let embTxt = embedding' (toDependent $ wordEmbedding (embeddings state)) inTensor
+--   --         output = linear (linearLayer state) embTxt
+          
+--   --     -- ② 誤差の計算 (予測と正解のズレを計算)
+--   --         loss = nllLoss' (logSoftmax (Dim 1) output) tgtTensor
+          
+--   --     -- 100回ごとに画面に誤差(Loss)を表示
+--   --     when (i `mod` 100 == 0) $ do
+--   --         putStrLn $ "Iteration: " ++ show i ++ " | Loss: " ++ show loss
+          
+--   --     -- ③ パラメーターの更新
+--   --     (newState, _) <- runStep state GD loss 5e-2  -- 学習率 0.05
+      
+--   --     return newState
+
+--   -- putStrLn "Training Completed!"
+
+--  -- TODO: Train model. After training, we can obtain the trained patameter, embeddings. This is the trained embedding.
+  
+--   -- Save params to use trained parameter in the next session
+--   -- trainedEmb :: Embedding
+--   -- saveParams trainedEmb modelPath
+--   -- Save word list
+--   B.writeFile wordLstPath (B.intercalate (B.pack $ encode "\n") wordlst)
+  
+--   -- Load params
+--   -- initWordEmb <- makeIndependent $ zeros' [1]
+--   -- let initEmb = Embedding {wordEmbedding = initWordEmb}
+--   -- loadedEmb <- loadParams initEmb modelPath
+
+--   return ()
